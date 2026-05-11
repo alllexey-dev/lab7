@@ -23,11 +23,20 @@ dependencies {
 }
 
 application {
-    mainClass.set(":server:ServerMainKt")
+    mainClass.set("ServerMainKt")
 }
 
 kotlin {
     jvmToolchain(17)
+}
+
+tasks.shadowJar {
+    manifest {
+        attributes["Main-Class"] = "ServerMainKt"
+
+        archiveBaseName.set("ImopServer")
+        archiveClassifier.set("")
+    }
 }
 
 tasks.test{

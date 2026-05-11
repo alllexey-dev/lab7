@@ -23,7 +23,6 @@ class CommandInvoker(val context: ServerContainer) {
     private val removeGreater = RemoveGreater()
     private val removeByID = RemoveByID()
     private val update = Update()
-
     fun registerCommand(command: Command) {
         commands[command.name] = command
     }

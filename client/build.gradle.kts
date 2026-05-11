@@ -23,13 +23,21 @@ dependencies {
 }
 
 application {
-    mainClass.set("client.ClientMainKt")
+    mainClass.set("ClientMainKt")
 }
 
 kotlin {
     jvmToolchain(17)
 }
+tasks.shadowJar {
+    manifest {
+        attributes["Main-Class"] = "ClientMainKt"
 
+        archiveBaseName.set("ImopClient")
+        archiveClassifier.set("")
+        archiveVersion.set("")
+    }
+}
 tasks.test{
     useJUnitPlatform()
 }

@@ -50,7 +50,9 @@ class CollectionManager(
 
     override fun add(organization: Organization) {
         if (organizationCollection.isEmpty()) initDate = LocalDate.now()
-        organizationCollection.addLast(organization)
+        if (!checkFullNameUnique(organization.fullName)) {
+            organizationCollection.addLast(organization)
+        } else throw IllegalArgumentException("Полное имя организации не уникально.")
     }
 
     override fun updateById(id: Int, organization: Organization) {
