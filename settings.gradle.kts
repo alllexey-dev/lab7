@@ -5,4 +5,4 @@ rootProject.name = "lab5.2"
 
 include("server")
 include("client")
-include("api")
+include("shared")
