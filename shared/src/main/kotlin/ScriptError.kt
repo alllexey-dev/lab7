@@ -1,0 +1,1 @@
+class ScriptError(message: String) : RuntimeException(message)
