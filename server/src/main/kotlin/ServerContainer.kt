@@ -2,7 +2,7 @@ import application.CommandInvoker
 import data.StorageManager
 import org.apache.logging.log4j.Level
 import org.apache.logging.log4j.kotlin.logger
-import util.EnvParser
+import util.PropertiesParser
 import java.net.InetSocketAddress
 import java.nio.channels.SelectionKey
 import java.nio.channels.Selector
@@ -21,7 +21,7 @@ class ServerContainer(
     var hostname = ""
 
     init {
-        val env = EnvParser.getEnvFromFile(".env")
+        val env = PropertiesParser.getPropertiesFromFile(".env")
         serverPort = env["SERVER_PORT"] ?: throw Error("server port should be specified in env")
         hostname = env["HOST_NAME"] ?: throw Error("hostname should be specified in env")
     }
@@ -39,18 +39,18 @@ class ServerContainer(
             serverSocket.configureBlocking(false)
             serverSocket.register(selector, SelectionKey.OP_ACCEPT)
 
-            println("Сервер запущен на $hostname:$serverPort")
-            while (true) {
-                val input = IO.processInput()
-                if (input != null) {
-                    logger.info { input }
-                    try {
-                        if (!input.isBlank()) {
-                            val tokens = input.split(" ")
-                            val name = tokens[0]
-                            val args = tokens.drop(1)
-                            logger.log(Level.INFO, "$name, $args")
-                            commandInvoker.invoke(name, args)
+        println("Server started at 127.0.0.1:$serverPort")
+        while (true) {
+            val input = IO.processInput()
+            if (input != null) {
+                logger.info { input }
+                try {
+                    if (!input.isBlank()) {
+                        val tokens = input.split(" ")
+                        val name = tokens[0]
+                        val args = tokens.drop(1)
+                        logger.log(Level.INFO, "$name, $args")
+                        commandInvoker.invoke(name, args)
 
                         }
                     } catch (e: IllegalArgumentException) {

@@ -1,4 +1,4 @@
-import util.EnvParser
+import util.PropertiesParser
 import java.io.IOException
 import java.net.ConnectException
 import java.net.InetSocketAddress
@@ -16,7 +16,7 @@ open class ClientContainer {
     var serverPort = ""
     var hostname = ""
     init {
-        val env = EnvParser.getEnvFromFile(".env")
+        val env = PropertiesParser.getPropertiesFromFile(".env")
         serverPort = env["SERVER_PORT"] ?: throw Error("server port should be specified in env")
         hostname = env["HOST_NAME"] ?: throw Error("hostname should be specified in env")
     }
@@ -43,7 +43,7 @@ open class ClientContainer {
         } catch (_: IllegalStateException) {
             return
         } catch (_: ConnectException) {
-            IO.printLine("не удалось подключится к серверу")
+            IO.printLine("cannot connect to server")
             Thread.sleep(timeout)
             if (timeout < 50000) timeout += 1000
             return up()

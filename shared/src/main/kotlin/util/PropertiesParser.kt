@@ -2,15 +2,15 @@ package util
 
 import java.io.File
 
-class EnvParser {
+class PropertiesParser {
     companion object {
-        fun getEnvFromFile(path: String): Map<String, String> {
-            val envFile = File(path)
-            println(envFile.absolutePath)
+        fun getPropertiesFromFile(path: String): Map<String, String> {
+            val propertiesFile = File(path)
+            println(propertiesFile.absolutePath)
 
-            if (!envFile.exists()) throw Error("env file should be specified")
+            if (!propertiesFile.exists()) throw Error("env file should be specified")
 
-            val map = envFile
+            val map = propertiesFile
                 .readLines()
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
