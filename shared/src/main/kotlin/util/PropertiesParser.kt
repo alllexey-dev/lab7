@@ -12,6 +12,7 @@ class PropertiesParser {
 
             val map = propertiesFile
                 .readLines()
+                .asSequence()
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
                 .map { it.split("=") }
