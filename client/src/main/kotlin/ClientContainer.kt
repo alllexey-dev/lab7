@@ -1,3 +1,4 @@
+import util.MD2Hasher
 import util.PropertiesParser
 import java.io.IOException
 import java.net.ConnectException
@@ -15,10 +16,21 @@ open class ClientContainer {
     var timeout: Long = 5000
     var serverPort = ""
     var hostname = ""
+    lateinit var userToken: String
     init {
         val env = PropertiesParser.getPropertiesFromFile(".env")
         serverPort = env["SERVER_PORT"] ?: throw Error("server port should be specified in env")
         hostname = env["HOST_NAME"] ?: throw Error("hostname should be specified in env")
+    }
+
+    fun requestReg(): String{
+        IO.printLine("Введите логин: ")
+        IO.printBefore("> ")
+        val login: String = IO.readLine() ?: error("login required")
+        IO.printLine("Введите пароль: ")
+        IO.printBefore("> ")
+        val password: String = IO.readLine() ?: error("password required")
+        return MD2Hasher.getMD2Hash(login + password)
     }
 
     fun up() {
@@ -31,9 +43,11 @@ open class ClientContainer {
             client.configureBlocking(true)
             socket = client
             channelIO = ChannelIO(client)
-            channelIO.write(Request.HandShake(null))
+            val userHash = requestReg()
+            channelIO.write(Request.HandShake(userHash))
             val handshakeResponse = channelIO.read() ?: return up()
             resolver.resolve(handshakeResponse)
+            println("получен токен:$userToken")
             timeout = 5000
             while (true) {
                 clientEnt.run()

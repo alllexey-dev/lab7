@@ -1,4 +1,4 @@
-class Parser(container: ClientContainer) {
+class Parser(val container: ClientContainer) {
     val io = container.IO
 
     fun parse(): Request{
@@ -8,6 +8,7 @@ class Parser(container: ClientContainer) {
 
 
         return Request.ExecuteCommand(
+            container.userToken,
             tokens[0],
             tokens.drop(1)
         )

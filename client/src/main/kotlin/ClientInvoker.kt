@@ -41,7 +41,7 @@ class ClientInvoker(
                     args.add(arg)
                 }
             }
-            return Request.ExecuteCommand(command, args)
+            return Request.ExecuteCommand(context.userToken,command, args)
         }
 
         throw IllegalArgumentException("Неизвестная комманда: $command")
@@ -64,7 +64,7 @@ class ClientInvoker(
                         args.add(arg)
                     }
                 }
-                val req = Request.ExecuteCommand(command, args)
+                val req = Request.ExecuteCommand(context.userToken,command, args)
                 context.channelIO.write(req)
 
                 val responseFromJson = context.channelIO.read() ?: return
