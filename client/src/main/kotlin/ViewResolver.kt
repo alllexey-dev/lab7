@@ -8,7 +8,7 @@ class ViewResolver(
             }
 
             is Response.ResetTokenPlease ->{
-                context.up()
+                throw RestoreConnectionSignal()
             }
 
             is Response.Error -> {
