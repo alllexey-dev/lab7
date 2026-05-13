@@ -54,6 +54,8 @@ open class ClientContainer {
             }
         } catch (_: ExitSignal) {
             return
+        } catch (_: RestoreConnectionSignal){
+            return up()
         } catch (_: IllegalStateException) {
             return
         } catch (_: ConnectException) {
