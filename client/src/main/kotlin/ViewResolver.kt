@@ -7,6 +7,10 @@ class ViewResolver(
                 context.IO.printLine(response.message)
             }
 
+            is Response.ResetTokenPlease ->{
+                context.up()
+            }
+
             is Response.Error -> {
                 context.IO.printLine("ошибка: " + response.message)
             }
@@ -15,7 +19,7 @@ class ViewResolver(
 
             is Response.HandShake -> {
                 context.invoker.load(response)
-
+                context.userToken = response.token
             }
         }
     }
