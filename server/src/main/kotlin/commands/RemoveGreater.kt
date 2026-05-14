@@ -12,12 +12,13 @@ class RemoveGreater (
     override val description = "Удаляет из коллекции все элементы, превышающие заданный"
 
     override fun execute(context: ServerContainer, args: List<String>): Response {
+        val dbManager = context.dBManager
         val collectionManager = context.collectionManager
 
-        val org: Organization = buildOrganization(collectionManager, args)
+        val org: Organization = buildOrganization(args)
         val count = collectionManager.countGreater(org)
 
-        collectionManager.removeGreater(org)
+        dbManager.removeGreater(org)
         return Response.Info("Из коллекции удалено $count элементов")
     }
 }

@@ -13,12 +13,6 @@ class Save(): InnerCommand {
         }
         try {
 
-            val collectionManager = context.collectionManager
-            val storageManager = context.storageManager
-
-            val collection = collectionManager.getCollection()
-
-            storageManager.uploadCollection(ArrayDeque(collection), path)
         } catch (_: FileNotFoundException) {
             throw IllegalArgumentException("Указан неверный путь к файлу.")
         }

@@ -4,8 +4,7 @@ import Response
 import ServerContainer
 import domain.Address
 
-class CountLessThanOfficialAddress (
-): Command {
+class CountLessThanOfficialAddress : Command {
     override val name = "count_less_than_official_address"
     override val args = listOf("Street", "Zip")
     override val description = "Подсчитывает количество организаций чей адрес меньше заданного"
