@@ -9,7 +9,7 @@ open class ClientContainer {
     val resolver = ViewResolver(this)
     val IO: IOPort = CliManager()
     val clientEnt = Client(this)
-    var socket: SocketChannel? = null
+    lateinit var socket: SocketChannel
     val scriptManager = ScriptManager()
     val invoker: ClientInvoker = ClientInvoker(this)
     lateinit var channelIO: ChannelIO
@@ -47,7 +47,7 @@ open class ClientContainer {
             channelIO.write(Request.HandShake(userHash))
             val handshakeResponse = channelIO.read() ?: return up()
             resolver.resolve(handshakeResponse)
-            println("получен токен:$userToken")
+            //println("получен токен:$userToken")
             timeout = 5000
             while (true) {
                 clientEnt.run()

@@ -1,5 +1,5 @@
-fun main(args: Array<String>) {
-    serverContainer(args = args) {
+fun main() {
+    serverContainer {
         up()
     }
 }

@@ -13,4 +13,13 @@ sealed class Request {
         val commandName: String,
         val args: List<String>,
     ) : Request()
+
+    @Serializable
+    object Ping : Request()
+
+    @Serializable
+    data class HiBalancer(
+        val host: String,
+        val port: Int,
+    ) : Request()
 }

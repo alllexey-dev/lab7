@@ -6,3 +6,4 @@ rootProject.name = "lab5.2"
 include("server")
 include("client")
 include("shared")
+include("gateway_server")

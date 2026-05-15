@@ -24,4 +24,7 @@ sealed class Response {
 
     @Serializable
     object Shutdown : Response()
+
+    @Serializable
+    object Pong : Response()
 }
