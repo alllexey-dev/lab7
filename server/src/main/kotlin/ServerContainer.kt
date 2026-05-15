@@ -1,5 +1,5 @@
 import application.CommandInvoker
-import data.StorageManager
+import data.DBManager
 import org.apache.logging.log4j.Level
 import org.apache.logging.log4j.kotlin.logger
 import util.PropertiesParser
@@ -8,13 +8,11 @@ import java.nio.channels.SelectionKey
 import java.nio.channels.Selector
 import java.nio.channels.ServerSocketChannel
 
-class ServerContainer(
-    filePath: String,
-) {
+class ServerContainer {
     var commandInvoker = CommandInvoker(this)
     val dispatcher: Dispatcher = Dispatcher(this)
-    val storageManager: StorageManager = StorageManager(this, filePath)
-    val collectionManager = application.CollectionManager(storageManager.downloadCollection())
+    val collectionManager = application.CollectionManager()
+    val dBManager = DBManager(collectionManager)
     val IO = ServerCli(this)
     val logger = logger()
     var serverPort = ""
@@ -24,6 +22,7 @@ class ServerContainer(
         val env = PropertiesParser.getPropertiesFromFile(".env")
         serverPort = env["SERVER_PORT"] ?: throw Error("server port should be specified in env")
         hostname = env["HOST_NAME"] ?: throw Error("hostname should be specified in env")
+        collectionManager.uploadCollection(dBManager.downloadCollection())
     }
 
     fun up() {
@@ -39,18 +38,18 @@ class ServerContainer(
             serverSocket.configureBlocking(false)
             serverSocket.register(selector, SelectionKey.OP_ACCEPT)
 
-        println("Server started at 127.0.0.1:$serverPort")
-        while (true) {
-            val input = IO.processInput()
-            if (input != null) {
-                logger.info { input }
-                try {
-                    if (!input.isBlank()) {
-                        val tokens = input.split(" ")
-                        val name = tokens[0]
-                        val args = tokens.drop(1)
-                        logger.log(Level.INFO, "$name, $args")
-                        commandInvoker.invoke(name, args)
+            println("Server started at 127.0.0.1:$serverPort")
+            while (true) {
+                val input = IO.processInput()
+                if (input != null) {
+                    logger.info { input }
+                    try {
+                        if (!input.isBlank()) {
+                            val tokens = input.split(" ")
+                            val name = tokens[0]
+                            val args = tokens.drop(1)
+                            logger.log(Level.INFO, "$name, $args")
+                            commandInvoker.invoke(name, args)
 
                         }
                     } catch (e: IllegalArgumentException) {
@@ -86,12 +85,10 @@ class ServerContainer(
 
                             val request = io.read()
                             logger.info { request.toString() }
-//                        println(Request?.data)
                             if (request != null) {
                                 println("Получен запрос: $request")
                                 val response = dispatcher.handleRequest(request)
                                 logger.info { response }
-//                            println(Response.data)
                                 try {
                                     io.write(response)
                                 } catch (e: Exception) {
@@ -102,25 +99,21 @@ class ServerContainer(
                         } catch (e: Exception) {
                             logger.info { e.message }
                             println("Клиент отключился или произошла ошибка")
-                            //println(e.printStackTrace())
                             key.channel().close()
                             key.cancel()
                         }
                     }
                 }
             }
-        } catch (e: ExitSignal) {
+        } catch (_: ExitSignal) {
             println("Сервер выключается.")
             return
         }
     }
 }
+
 fun serverContainer(args: Array<String>, container: ServerContainer.() -> Unit): ServerContainer {
-    var filePath: String = ""
-    if (args.isNotEmpty()) {
-        filePath = args[0]
-    }
-    val serv = ServerContainer(filePath)
+    val serv = ServerContainer()
     serv.container()
     return serv
 }

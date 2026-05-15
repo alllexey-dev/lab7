@@ -1,3 +1,5 @@
+import java.sql.SQLException
+
 class Dispatcher(
     val container: ServerContainer,
 ) {
@@ -14,7 +16,11 @@ class Dispatcher(
                 return Response.ResetTokenPlease
             } catch (_: ExitSignal) {
                 return Response.Shutdown
-            } catch (e: Exception) {
+            } catch (_: SQLException){
+                println("не удалось взаимодействовать с базой данных")
+            }
+
+            catch (e: Exception) {
                 val rpc = Response.Error(e.message ?: "No error message specified")
 
                 return rpc

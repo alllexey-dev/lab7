@@ -12,12 +12,13 @@ class RemoveLower (
     override val description = "Удаляет из коллекции все элементы, меньше чем"
 
     override fun execute(context: ServerContainer, args: List<String>): Response {
+        val dbManager = context.dBManager
         val collectionManager = context.collectionManager
 
-        val org: Organization = buildOrganization(collectionManager, args)
+        val org: Organization = buildOrganization(args)
         val count = collectionManager.countLower(org)
 
-        collectionManager.removeLower(org)
+        dbManager.removeLower(org)
         return Response.Info("Из коллекции удалено $count элементов")
     }
 }
