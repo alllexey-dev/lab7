@@ -4,6 +4,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.apache.logging.log4j.Level
 import org.apache.logging.log4j.kotlin.logger
+import thread.RequestResolver
 import util.PropertiesParser
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
@@ -11,6 +12,7 @@ import java.nio.channels.SelectionKey
 import java.nio.channels.Selector
 import java.nio.channels.ServerSocketChannel
 import java.nio.channels.SocketChannel
+import java.util.concurrent.ForkJoinPool
 
 class ServerContainer {
     var commandInvoker = CommandInvoker(this)
@@ -21,6 +23,10 @@ class ServerContainer {
     val logger = logger()
     var serverPort = ""
     var hostname = ""
+
+    val readPool = ForkJoinPool(4)
+    val writePool = ForkJoinPool(4)
+    val requestResolver = RequestResolver()
 
     init {
         val env = PropertiesParser.getPropertiesFromFile(".env")
@@ -68,77 +74,151 @@ class ServerContainer {
             serverSocket.configureBlocking(false)
             serverSocket.register(selector, SelectionKey.OP_ACCEPT)
 
-            println("Server started at 127.0.0.1:$serverPort")
+            println("Server started at $hostname:$serverPort")
             while (true) {
-                val input = IO.processInput()
-                if (input != null) {
-                    logger.info { input }
-                    try {
-                        if (!input.isBlank()) {
-                            val tokens = input.split(" ")
-                            val name = tokens[0]
-                            val args = tokens.drop(1)
-                            logger.log(Level.INFO, "$name, $args")
-                            commandInvoker.invoke(name, args)
+                process(selector, serverSocket)
+            }
+        } catch (_: ExitSignal) {
+            requestResolver.shutdown()
+            writePool.shutdown()
+            readPool.shutdown()
+            println("Сервер выключается.")
+            return
+        }
+    }
 
-                        }
-                    } catch (e: IllegalArgumentException) {
-                        IO.write(e.message ?: "")
-                        logger.warn { e.message ?: "" }
+    fun process(selector: Selector, serverSocket: ServerSocketChannel) {
+        IO.process()
+        selector.selectNow()
+        val selectionIterator = selector.selectedKeys().iterator()
+        while (selectionIterator.hasNext()) {
+            val key = selectionIterator.next()
+            logger.info { key.toString() }
+            selectionIterator.remove()
+            if (!key.isValid) continue
+
+            if (key.isAcceptable) {
+                val clientChannel = serverSocket.accept()
+                logger.info { clientChannel.toString() }
+                clientChannel.configureBlocking(false)
+
+                val client = ClientState(clientChannel)
+                clientChannel.register(selector, SelectionKey.OP_READ, client)
+
+                println("Client connected: ${clientChannel.remoteAddress}")
+            }
+
+            if (key.isReadable) {
+                val state = key.attachment() as ClientState
+
+                var shouldRead = false
+
+                state.lock.lock()
+                try {
+                    if (!state.isReading && !state.isClosed) {
+                        state.isReading = true
+                        shouldRead = true
                     }
+                } finally {
+                    state.lock.unlock()
                 }
-                selector.selectNow()
-                val selectionIterator = selector.selectedKeys().iterator()
-                while (selectionIterator.hasNext()) {
-                    val key = selectionIterator.next()
-                    logger.info { key.toString() }
-                    selectionIterator.remove()
 
-                    if (!key.isValid) continue
-
-                    if (key.isAcceptable) {
-                        val client = serverSocket.accept()
-                        logger.info { client.toString() }
-                        client.configureBlocking(false)
-
-                        val io = ServerChannelIO(client)
-                        client.register(selector, SelectionKey.OP_READ, io)
-
-                        println("Client connected: ${client.remoteAddress}")
-                    }
-
-                    if (key.isReadable) {
-
-                        val io = key.attachment() as ServerChannelIO
-
+                if (shouldRead) {
+                    readPool.execute {
                         try {
+                            val request = state.read()
+                            IO.write(request.toString() + " from: " + state.channel.remoteAddress)
+                            if (request != null) {
+                                requestResolver.execute {
+                                    try {
+                                        val response = dispatcher.handleRequest(request)
 
-                            val request = io.read()
-                            logger.info { request.toString() }
-                            request?.let {
-                                println("Получен запрос: $request")
-                                val response = dispatcher.handleRequest(request)
-                                logger.info { response }
-                                try {
-                                    io.write(response)
-                                } catch (e: Exception) {
-                                    logger.warn { e.message ?: "" }
-                                    e.printStackTrace()
+                                        logger.info { response }
+
+                                        submitWrite(key, state, response)
+                                    } catch (e: Exception) {
+                                        logger.warn { e.message ?: "" }
+                                        e.printStackTrace()
+                                        closeKey(key, state)
+                                    }
                                 }
                             }
                         } catch (e: Exception) {
-                            logger.info { e.message }
-                            println("Клиент отключился или произошла ошибка")
-                            key.channel().close()
-                            key.cancel()
+                            logger.warn { e.message ?: "" }
+                            closeKey(key, state)
+                        } finally {
+                            state.lock.lock()
+                            try {
+                                state.isReading = false
+                            } finally {
+                                state.lock.unlock()
+                            }
                         }
                     }
                 }
             }
-        } catch (_: ExitSignal) {
-            println("Сервер выключается.")
+
+        }
+    }
+
+    private fun submitWrite(
+        key: SelectionKey,
+        state: ClientState,
+        response: Response
+    ) {
+        @Suppress
+        var shouldWrite = false
+
+        state.lock.lock()
+        try {
+            if (!state.isWriting && !state.isClosed) {
+                state.isWriting = true
+                shouldWrite = true
+            }
+        } finally {
+            state.lock.unlock()
+        }
+
+        if (!shouldWrite) {
             return
         }
+
+        writePool.execute {
+            try {
+                state.write(response)
+            } catch (e: Exception) {
+                logger.warn { e.message ?: "" }
+                e.printStackTrace()
+                closeKey(key, state)
+            } finally {
+                state.lock.lock()
+                try {
+                    state.isWriting = false
+                } finally {
+                    state.lock.unlock()
+                }
+            }
+        }
+    }
+}
+
+private fun closeKey(key: SelectionKey, state: ClientState) {
+    state.lock.lock()
+    try {
+        if (state.isClosed) return
+        state.isClosed = true
+    } finally {
+        state.lock.unlock()
+    }
+
+    try {
+        key.cancel()
+    } catch (_: Exception) {
+    }
+
+    try {
+        key.channel().close()
+    } catch (_: Exception) {
     }
 }
 
