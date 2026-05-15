@@ -13,6 +13,7 @@ dependencies {
     testImplementation("io.mockk:mockk:${mockkVersion}")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.3")
     implementation(kotlin("stdlib-jdk8"))
+    implementation("org.postgresql:postgresql:42.7.2")
     implementation("io.github.pdvrieze.xmlutil:core:${serializationVersion}")
     implementation("io.github.pdvrieze.xmlutil:serialization:${serializationVersion}")
     implementation("org.apache.logging.log4j:log4j-api-kotlin:1.5.0")

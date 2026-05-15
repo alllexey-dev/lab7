@@ -1,12 +1,16 @@
 import application.CommandInvoker
 import data.DBManager
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.apache.logging.log4j.Level
 import org.apache.logging.log4j.kotlin.logger
 import util.PropertiesParser
 import java.net.InetSocketAddress
+import java.nio.ByteBuffer
 import java.nio.channels.SelectionKey
 import java.nio.channels.Selector
 import java.nio.channels.ServerSocketChannel
+import java.nio.channels.SocketChannel
 
 class ServerContainer {
     var commandInvoker = CommandInvoker(this)
@@ -23,6 +27,32 @@ class ServerContainer {
         serverPort = env["SERVER_PORT"] ?: throw Error("server port should be specified in env")
         hostname = env["HOST_NAME"] ?: throw Error("hostname should be specified in env")
         collectionManager.uploadCollection(dBManager.downloadCollection())
+
+        val balancerPort = env["GW_PORT"] ?: throw Error("hostname should be specified in env")
+        val balancerHost = env["GW_HOST"] ?: throw Error("hostname should be specified in env")
+
+        val address = InetSocketAddress(
+            balancerHost,
+            balancerPort.toIntOrNull() ?: error("no")
+        )
+        SocketChannel.open(address).use{ socketChannel ->
+            val json = Json.encodeToString(Request.HiBalancer(
+                hostname,
+                serverPort.toIntOrNull() ?: throw Error("check for server port format in env file")
+            ))
+            val bodyBytes = json.toByteArray(Charsets.UTF_8)
+
+            val writeBuffer = ByteBuffer.allocate(4 + bodyBytes.size)
+            writeBuffer.putInt(bodyBytes.size)
+            writeBuffer.put(bodyBytes)
+            writeBuffer.flip()
+
+            while (writeBuffer.hasRemaining()) {
+                val written = socketChannel.write(writeBuffer)
+                if (written == -1) throw Exception("Disconnected while writing")
+            }
+
+        }
     }
 
     fun up() {
@@ -85,7 +115,7 @@ class ServerContainer {
 
                             val request = io.read()
                             logger.info { request.toString() }
-                            if (request != null) {
+                            request?.let {
                                 println("Получен запрос: $request")
                                 val response = dispatcher.handleRequest(request)
                                 logger.info { response }

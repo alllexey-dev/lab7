@@ -33,6 +33,12 @@ class Dispatcher(
             } catch (e: Exception) {
                 println(e.message ?: "No error message specified")
             }
+
+            is Request.Ping -> {
+                return Response.Pong
+            }
+
+            else -> {}
         }
         return Response.Error("Something went wrong")
     }

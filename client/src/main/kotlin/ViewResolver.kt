@@ -21,6 +21,8 @@ class ViewResolver(
                 context.invoker.load(response)
                 context.userToken = response.token
             }
+
+            else -> {}
         }
     }
 }
