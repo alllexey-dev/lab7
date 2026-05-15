@@ -1,24 +1,15 @@
-import org.apache.logging.log4j.Level
 import org.apache.logging.log4j.kotlin.logger
 import util.PropertiesParser
-import java.io.IOException
-import java.net.ConnectException
 import java.net.InetSocketAddress
 import java.nio.channels.SelectionKey
 import java.nio.channels.Selector
 import java.nio.channels.ServerSocketChannel
-import java.nio.channels.SocketChannel
-import kotlin.text.isBlank
-import kotlin.text.split
 
 open class GatewayContainer {
     val balancer = Balancer()
     var logger = logger()
-    var socket: SocketChannel? = null
-    var timeout: Long = 5000
     var serverPort = ""
     var hostname = ""
-    lateinit var userToken: String
     init {
         val env = PropertiesParser.getPropertiesFromFile(".env")
         serverPort = env["GW_PORT"] ?: throw Error("server port should be specified in env")
