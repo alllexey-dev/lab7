@@ -1,7 +1,7 @@
 import java.sql.SQLException
 
 class Dispatcher(
-    val container: ServerContainer,
+    container: ServerContainer,
 ) {
     val invoker = container.commandInvoker
     val td = TokenDecoder()

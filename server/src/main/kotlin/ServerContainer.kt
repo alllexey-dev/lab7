@@ -142,7 +142,7 @@ class ServerContainer {
     }
 }
 
-fun serverContainer(args: Array<String>, container: ServerContainer.() -> Unit): ServerContainer {
+fun serverContainer(container: ServerContainer.() -> Unit): ServerContainer {
     val serv = ServerContainer()
     serv.container()
     return serv
