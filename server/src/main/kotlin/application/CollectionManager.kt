@@ -9,7 +9,6 @@ import java.time.LocalDate
 class CollectionManager : OrganizationRepository {
 
     private var organizationCollection: ArrayDeque<Organization> = ArrayDeque()
-    private var currentID: Int = if (organizationCollection.isNotEmpty()) organizationCollection.maxOf { it.id } else 0
     private var initDate = LocalDate.now()
 
     fun checkFullNameUnique(fullName: String): Boolean = organizationCollection.any { it.fullName == fullName }

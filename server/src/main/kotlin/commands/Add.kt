@@ -20,12 +20,12 @@ class Add : Command {
     )
     override val name: String = "add"
 
-    override fun execute(context: ServerContainer, args: List<String>, token: String): Response {
+    override fun execute(context: ServerContainer, args: List<String>, userHash: String): Response {
         val dbManager = context.dBManager
 
         val org: Organization = buildOrganization(args)
 
-        dbManager.add(org, token)
+        dbManager.add(org, userHash)
         return Response.Info("Организация '${org.name}' успешно добавлена.")
     }
 
