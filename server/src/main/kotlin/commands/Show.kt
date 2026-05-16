@@ -9,7 +9,7 @@ class Show(
     override val args = listOf<String>()
     override val name: String = "show"
 
-    override fun execute(context: ServerContainer, args: List<String>): Response {
+    override fun execute(context: ServerContainer, args: List<String>, userHash: String): Response {
         val collectionManager = context.collectionManager
         if (collectionManager.getCollection().isEmpty()) return Response.Info("Вы еще не успели насоздавать шедевров...")
         val strBuilder = StringBuilder()

@@ -9,7 +9,7 @@ class CountLessThanOfficialAddress : Command {
     override val args = listOf("Street", "Zip")
     override val description = "Подсчитывает количество организаций чей адрес меньше заданного"
 
-    override fun execute(context: ServerContainer, args: List<String>): Response {
+    override fun execute(context: ServerContainer, args: List<String>, userHash: String): Response {
         val collectionManager = context.collectionManager
 
         val street = args[0]

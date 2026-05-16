@@ -27,58 +27,77 @@ class DBManager(val collectionManager: CollectionManager) {
         initDate = LocalDate.now()
     }
 
-
-    fun clear() {
-        val statement = "delete from organizations"
-
-        connection.prepareStatement(statement).use { sqlStatement ->
-            sqlStatement.executeQuery()
-        }
-
-        collectionManager.clear()
-    }
-
-    fun removeGreater(organization: Organization) {
-        val statement = "delete from organizations where name > ?"
+    fun removeGreater(organization: Organization, userHash: String) {
+        val statement = "delete from organizations where name > ? and creator_hash = ? returning id"
+        val ids = ArrayList<Int>()
 
         connection.prepareStatement(statement).use { sqlStatement ->
             sqlStatement.setString(1, organization.name)
-            sqlStatement.executeUpdate()
+            sqlStatement.setString(2, userHash)
+            sqlStatement.executeQuery().use{ rs ->
+                while(rs.next()){
+                    ids.add(rs.getInt("id"))
+                }
+
+            }
         }
 
-        collectionManager.removeGreater(organization)
+        for (id in ids){
+            collectionManager.removeById(id)
+        }
     }
 
-    fun removeLower(organization: Organization) {
-        val statement = "delete from organizations where name < ?"
+    fun removeLower(organization: Organization, userHash: String) {
+        val statement = "delete from organizations where name < ? and creator_hash = ? returning id"
+        val ids = ArrayList<Int>()
 
         connection.prepareStatement(statement).use { sqlStatement ->
             sqlStatement.setString(1, organization.name)
-            sqlStatement.executeUpdate()
+            sqlStatement.setString(2, userHash)
+            sqlStatement.executeQuery().use{ rs ->
+                while(rs.next()){
+                    ids.add(rs.getInt("id"))
+                }
+
+            }
         }
 
-        collectionManager.removeLower(organization)
+        for (id in ids){
+            collectionManager.removeById(id)
+        }
     }
 
-    fun removeById(id: Int) {
+    fun removeById(id: Int, userHash: String) {
 
+        val isAllowed = checkPermissions(id ,userHash)
 
-        val statement = "delete from organizations where id = ?"
+        if (!isAllowed){
+            throw IllegalStateException("permissions denied")
+        }
+
+        val statement = "delete from organizations where id = ? and creator_hash = ?"
 
         connection.prepareStatement(statement).use { sqlStatement ->
             sqlStatement.setInt(1, id)
+            sqlStatement.setString(2, userHash)
             sqlStatement.executeUpdate()
         }
 
         collectionManager.removeById(id)
     }
 
-    fun updateById(id: Int, organization: Organization) {
+    fun updateById(id: Int, organization: Organization, userHash: String) {
+        val isAllowed = checkPermissions(organization.id, userHash)
+
+        if (!isAllowed){
+            throw IllegalStateException("permissions denied")
+        }
+
         val statement = "update organizations " +
                 "set name = ?, x = ?, y = ?, creation_date = ?, " +
                 "turnover = ?, full_name = ?, employees_count = ?, " +
                 "type = ?, street = ?, zip = ? " +
-                "where id = ?"
+                "where id = ? and creator_hash = ?"
 
         connection.prepareStatement(statement).use { sqlStatement ->
             sqlStatement.setString(1, organization.name)
@@ -92,6 +111,7 @@ class DBManager(val collectionManager: CollectionManager) {
             sqlStatement.setString(9, organization.officialAddress.street)
             sqlStatement.setString(10, organization.officialAddress.zipCode)
             sqlStatement.setInt(11, id)
+            sqlStatement.setString(12, userHash)
 
             sqlStatement.executeUpdate()
         }
@@ -99,10 +119,11 @@ class DBManager(val collectionManager: CollectionManager) {
         collectionManager.updateById(id, organization)
     }
 
-    fun add(organization: Organization) {
+    fun add(organization: Organization, userHash: String) {
+
         val statement =
-            "insert into organizations (name, x, y, creation_date, turnover, full_name, employees_count, type, street, zip)" +
-                    "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "insert into organizations (name, x, y, creation_date, turnover, full_name, employees_count, type, street, zip, creator_hash) " +
+                    "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
         connection.prepareStatement(statement).use { sqlStatement ->
             sqlStatement.setString(1, organization.name)
@@ -115,6 +136,7 @@ class DBManager(val collectionManager: CollectionManager) {
             sqlStatement.setString(8, organization.type.toString())
             sqlStatement.setString(9, organization.officialAddress.street)
             sqlStatement.setString(10, organization.officialAddress.zipCode)
+            sqlStatement.setString(11, userHash)
 
             sqlStatement.executeUpdate()
         }
@@ -168,5 +190,31 @@ class DBManager(val collectionManager: CollectionManager) {
         }
 
         return organizationsList
+    }
+
+    private fun checkPermissions(id: Int, userHash: String): Boolean {
+        val statement = """
+        SELECT EXISTS (
+            SELECT 1 
+            FROM organizations 
+            WHERE id = ? AND creator_hash = ?
+        )
+    """.trimIndent()
+
+        try {
+            connection.prepareStatement(statement).use { sqlStatement ->
+                sqlStatement.setInt(1, id)
+                sqlStatement.setString(2, userHash)
+
+                sqlStatement.executeQuery().use { resultSet ->
+                    if (resultSet.next()) {
+                        return resultSet.getBoolean(1)
+                    }
+                }
+            }
+        } catch (_: SQLException) {
+            println("Ошибка при проверке прав доступа:")
+        }
+        return false
     }
 }

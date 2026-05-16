@@ -10,7 +10,7 @@ class Dispatcher(
         when (request) {
             is Request.ExecuteCommand -> try {
                 val skip = td.matchToken(request.userToken)
-                val result = invoker.handleInput(request)
+                val result = invoker.handleInput(request, skip)
                 return result
             } catch (_: TokenExpiredException) {
                 return Response.ResetTokenPlease

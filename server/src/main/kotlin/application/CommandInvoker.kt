@@ -42,11 +42,11 @@ class CommandInvoker(val context: ServerContainer) {
         serverCommands["save"] = Save()
     }
 
-    fun handleInput(req: Request.ExecuteCommand): Response {
+    fun handleInput(req: Request.ExecuteCommand, token: String): Response {
         val commandName = req.commandName
         val command = commands[commandName] ?: return  Response.Error("команда не найдена")
 
-        return command.execute(context, req.args)
+        return command.execute(context, req.args, token)
     }
 
     fun invoke(name: String, args: List<String>){

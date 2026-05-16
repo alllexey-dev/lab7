@@ -2,31 +2,53 @@ import util.MD2Hasher
 import java.time.LocalTime
 
 typealias UserHashed = String
-typealias Token = Pair<String, LocalTime>
+typealias Token = String
 
 class TokenDecoder {
-    val hm = HashMap<UserHashed, Token>()
+    private val hm = BiMap<Token, UserHashed>()
+    private val tokenExpirationMap = HashMap<Token, LocalTime>()
 
-    fun updateToken(userHash: UserHashed): String{
-        val token = Token(MD2Hasher.getMD2Hash(userHash + LocalTime.now()), LocalTime.now().plusMinutes(15))
-        hm[userHash] = token
-        return token.first
+    fun updateToken(userHash: UserHashed): String {
+        val token = MD2Hasher.getMD2Hash(userHash + LocalTime.now())
+        hm.insertKeyByValue(userHash, token)
+        tokenExpirationMap[token] = LocalTime.now().plusMinutes(15)
+        return token
     }
 
-    fun matchToken(userHash: UserHashed): String{
-        if (hm.contains(userHash)){
-            if (hm[userHash]!!.second < LocalTime.now()){
-                throw TokenExpiredException()
-            }
-            println("$userHash expires at ${hm[userHash]!!.second}")
-            val token = Token(hm[userHash]!!.first, LocalTime.now().plusMinutes(15))
-            hm[userHash] = token
-            return token.first
+    fun matchToken(token: Token): String {
+
+        val user = hm.getValueByKey(token)!!
+        val time = tokenExpirationMap[token]!!
+
+        if (time < LocalTime.now()) {
+            throw TokenExpiredException()
+        } else{
+            tokenExpirationMap[token] = LocalTime.now().plusMinutes(15)
         }
-        else{
-            val token = Token(MD2Hasher.getMD2Hash(userHash + LocalTime.now()), LocalTime.now().plusMinutes(15))
-            hm[userHash] = token
-            return token.first
+
+        return user
+    }
+}
+
+private class BiMap<K, V> {
+    private var forward = HashMap<K, V>()
+    private var backward = HashMap<V, K>()
+
+
+    fun getValueByKey(k: K): V? {
+        return forward[k]
+    }
+
+
+    fun insertKeyByValue(v: V, k: K) {
+        forward[k]?.let{
+            backward.remove(it)
         }
+        backward[v]?.let {
+            forward.remove(it)
+        }
+
+        forward[k] = v
+        backward[v] = k
     }
 }
