@@ -74,10 +74,6 @@ class DBManager(val collectionManager: CollectionManager) {
     }
 
     fun updateById(id: Int, organization: Organization) {
-        println("=== ОТЛАДКА UPDATE ===")
-        println("Пытаемся обновить ID: $id")
-        println("Имя организации из объекта: ${organization.name}")
-
         val statement = "update organizations " +
                 "set name = ?, x = ?, y = ?, creation_date = ?, " +
                 "turnover = ?, full_name = ?, employees_count = ?, " +
@@ -123,9 +119,9 @@ class DBManager(val collectionManager: CollectionManager) {
             sqlStatement.executeUpdate()
         }
 
-        val idStatment = "SELECT last_value FROM organizations_id_seq"
+        val idStatement = "SELECT last_value FROM organizations_id_seq"
 
-        val id = connection.prepareStatement(idStatment).executeQuery().use { resultSet ->
+        val id = connection.prepareStatement(idStatement).executeQuery().use { resultSet ->
             if (resultSet.next()) {
                 resultSet.getInt(1)
             } else {
