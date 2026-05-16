@@ -3,7 +3,7 @@ package domain
 import java.time.LocalDate
 
 data class Organization (
-    val id: Int,
+    var id: Int,
     val name: String,
     val coordinates: Coordinates,
     val creationDate: LocalDate,

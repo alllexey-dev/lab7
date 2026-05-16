@@ -40,6 +40,7 @@ class Dispatcher(
 
             else -> {}
         }
+
         return Response.Error("Something went wrong")
     }
 }

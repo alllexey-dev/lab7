@@ -44,7 +44,8 @@ class CollectionManager : OrganizationRepository {
         else initDate.toString()
     }
 
-    override fun add(organization: Organization) {
+    override fun add(organization: Organization, id: Int) {
+        organization.id = id
         if (organizationCollection.isEmpty()) initDate = LocalDate.now()
         if (!checkFullNameUnique(organization.fullName)) {
             organizationCollection.addLast(organization)

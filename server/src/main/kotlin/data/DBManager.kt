@@ -8,6 +8,7 @@ import domain.OrganizationType
 import util.PropertiesParser
 import java.sql.Connection
 import java.sql.DriverManager
+import java.sql.SQLException
 import java.time.LocalDate
 
 class DBManager(val collectionManager: CollectionManager) {
@@ -42,7 +43,7 @@ class DBManager(val collectionManager: CollectionManager) {
 
         connection.prepareStatement(statement).use { sqlStatement ->
             sqlStatement.setString(1, organization.name)
-            sqlStatement.executeQuery()
+            sqlStatement.executeUpdate()
         }
 
         collectionManager.removeGreater(organization)
@@ -53,13 +54,15 @@ class DBManager(val collectionManager: CollectionManager) {
 
         connection.prepareStatement(statement).use { sqlStatement ->
             sqlStatement.setString(1, organization.name)
-            sqlStatement.executeQuery()
+            sqlStatement.executeUpdate()
         }
 
         collectionManager.removeLower(organization)
     }
 
     fun removeById(id: Int) {
+
+
         val statement = "delete from organizations where id = ?"
 
         connection.prepareStatement(statement).use { sqlStatement ->
@@ -74,14 +77,14 @@ class DBManager(val collectionManager: CollectionManager) {
         val statement = "update organizations " +
                 "set name = ?, x = ?, y = ?, creation_date = ?, " +
                 "turnover = ?, full_name = ?, employees_count = ?, " +
-                "type = ?, street = ?, zip = ?" +
+                "type = ?, street = ?, zip = ? " +
                 "where id = ?"
 
         connection.prepareStatement(statement).use { sqlStatement ->
             sqlStatement.setString(1, organization.name)
             sqlStatement.setFloat(2, organization.coordinates.x)
             sqlStatement.setFloat(3, organization.coordinates.y)
-            sqlStatement.setString(4, organization.creationDate.toString())
+            sqlStatement.setObject(4, organization.creationDate)
             sqlStatement.setFloat(5, organization.annualTurnover)
             sqlStatement.setString(6, organization.fullName)
             sqlStatement.setInt(7, (organization.employeesCount ?: 0).toInt())
@@ -116,7 +119,17 @@ class DBManager(val collectionManager: CollectionManager) {
             sqlStatement.executeUpdate()
         }
 
-        collectionManager.add(organization)
+        val idStatement = "SELECT last_value FROM organizations_id_seq"
+
+        val id = connection.prepareStatement(idStatement).executeQuery().use { resultSet ->
+            if (resultSet.next()) {
+                resultSet.getInt(1)
+            } else {
+                throw SQLException("Не удалось получить значение последовательности")
+            }
+        }
+
+        collectionManager.add(organization, id)
     }
 
     fun downloadCollection(): List<Organization> {
@@ -124,7 +137,7 @@ class DBManager(val collectionManager: CollectionManager) {
         val organizationsList: ArrayList<Organization> = ArrayList()
 
         val query = """
-        SELECT name, x, y, creation_date, turnover, full_name, employees_count, type, street, zip 
+        SELECT id, name, x, y, creation_date, turnover, full_name, employees_count, type, street, zip 
         FROM organizations
     """.trimIndent()
         connection.prepareStatement(query).use { stmt ->
@@ -132,7 +145,7 @@ class DBManager(val collectionManager: CollectionManager) {
                 while (rs.next()) {
 
                     val org = Organization(
-                        0,
+                        rs.getInt("id"),
                         rs.getString("name"),
                         Coordinates(
                             rs.getFloat("x"),
