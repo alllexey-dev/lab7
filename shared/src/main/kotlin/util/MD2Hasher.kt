@@ -9,9 +9,9 @@ class MD2Hasher {
 
             val md2 = MessageDigest.getInstance("MD2") ?: throw NoSuchAlgorithmException()
 
-            val hash = md2.digest(input.toByteArray())
+            val hashBytes = md2.digest(input.toByteArray(Charsets.UTF_8))
 
-            return hash.toString()
+            return hashBytes.joinToString("") { String.format("%02x", it) }
         }
     }
 }

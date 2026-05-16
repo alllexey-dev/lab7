@@ -9,7 +9,7 @@ class Info(
     override val args = listOf<String>()
     override val description = "Выводит информацию о коллекции"
 
-    override fun execute(context: ServerContainer, args: List<String>): Response {
+    override fun execute(context: ServerContainer, args: List<String>, userHash: String): Response {
         val collectionManager = context.collectionManager
         val collection = collectionManager.getCollection()
 
