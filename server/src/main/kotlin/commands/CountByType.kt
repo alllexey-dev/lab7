@@ -10,7 +10,7 @@ class CountByType(
     override val args = listOf("Type")
     override val description = "Подсчитывает количество организаций заданного типа"
 
-    override fun execute(context: ServerContainer, args: List<String>): Response {
+    override fun execute(context: ServerContainer, args: List<String>, userHash: String): Response {
         val neatArgument = args[0].uppercase().trim().replace(" ", "_")
         val waitIsItTrue = OrganizationType.entries.any { it.toString() == neatArgument }
         val collectionManager = context.collectionManager

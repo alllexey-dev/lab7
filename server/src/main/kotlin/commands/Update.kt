@@ -21,7 +21,7 @@ class Update: Command {
     )
     override val description = "Обновляет элемент в коллекции по заданному id"
 
-    override fun execute(context: ServerContainer, args: List<String>): Response {
+    override fun execute(context: ServerContainer, args: List<String>, userHash: String): Response {
         val dbManager = context.dBManager
 
         val id: Int
@@ -32,7 +32,11 @@ class Update: Command {
         }
         val preparedArgs = args.drop(1)
         val org: Organization = buildOrganization(preparedArgs)
-        dbManager.updateById(id, org)
+        try {
+            dbManager.updateById(id, org, userHash)
+        }  catch (e: IllegalStateException){
+            return Response.Error(e.message ?: "")
+        }
         return Response.Info("Организация успешно обновлена.")
 
     }

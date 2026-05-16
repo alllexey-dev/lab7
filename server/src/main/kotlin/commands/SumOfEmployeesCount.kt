@@ -9,7 +9,7 @@ class SumOfEmployeesCount(
     override val args = listOf<String>()
     override val description = "Возвращает количество работяг во всей коллекции"
 
-    override fun execute(context: ServerContainer, args: List<String>): Response {
+    override fun execute(context: ServerContainer, args: List<String>, userHash: String): Response {
         val collectionManager = context.collectionManager
         val count = collectionManager.sumEmployees()
 

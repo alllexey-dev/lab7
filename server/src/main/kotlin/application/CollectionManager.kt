@@ -14,10 +14,6 @@ class CollectionManager : OrganizationRepository {
 
     fun checkFullNameUnique(fullName: String): Boolean = organizationCollection.any { it.fullName == fullName }
 
-    fun clear() {
-        organizationCollection.clear()
-        currentID = 0
-    }
 
     fun uploadCollection(collection: List<Organization>){
         organizationCollection = ArrayDeque(collection)
@@ -31,11 +27,7 @@ class CollectionManager : OrganizationRepository {
 
     fun countLessAddress(address: Address): Int = organizationCollection.count { it.officialAddress < address }
 
-    fun removeGreater(organization: Organization) = organizationCollection.removeIf { it > organization }
-
     fun countGreater(organization: Organization) = organizationCollection.count { it > organization }
-
-    fun removeLower(organization: Organization) = organizationCollection.removeIf { it < organization }
 
     fun countLower(organization: Organization) = organizationCollection.count { it < organization }
 
