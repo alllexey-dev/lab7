@@ -1,4 +1,3 @@
 package commands.inner
 
-class ExitSignal: RuntimeException() {
-}
+class ExitSignal : RuntimeException()

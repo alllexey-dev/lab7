@@ -3,8 +3,7 @@ package commands
 import Response
 import ServerContainer
 
-class RemoveByID(
-) : Command {
+class RemoveByID : Command {
     override val name = "remove_by_id"
     override val args = listOf("ID")
     override val description = "Удаляет из коллекции элемент по ID"
@@ -16,7 +15,7 @@ class RemoveByID(
             return Response.Info("Элемент с ID ${args[0]} удален.")
         } catch (_: NumberFormatException) {
             throw IllegalArgumentException("Введенный аргумент не является числом.")
-        } catch (e: IllegalStateException){
+        } catch (e: IllegalStateException) {
             return Response.Error(e.message ?: "")
         }
     }

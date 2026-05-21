@@ -5,10 +5,19 @@ import ServerContainer
 import application.buildOrganization
 import domain.Organization
 
-class RemoveLower (
-): Command {
+class RemoveLower : Command {
     override val name = "remove_lower"
-    override val args = listOf("Name", "X", "Y", "Annual turnover", "Full name (unique)", "Employee count", "Street", "Zip code", "Type")
+    override val args = listOf(
+        "Name",
+        "X",
+        "Y",
+        "Annual turnover",
+        "Full name (unique)",
+        "Employee count",
+        "Street",
+        "Zip code",
+        "Type"
+    )
     override val description = "Удаляет из коллекции все элементы, меньше чем"
 
     override fun execute(context: ServerContainer, args: List<String>, userHash: String): Response {

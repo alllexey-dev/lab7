@@ -3,8 +3,7 @@ package commands
 import Response
 import ServerContainer
 
-class SumOfEmployeesCount(
-): Command {
+class SumOfEmployeesCount : Command {
     override val name = "sum_of_employees_count"
     override val args = listOf<String>()
     override val description = "Возвращает количество работяг во всей коллекции"

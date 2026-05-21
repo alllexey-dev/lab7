@@ -11,9 +11,10 @@ class RequestResolver {
         8,
         0L,
         TimeUnit.MILLISECONDS,
-        ArrayBlockingQueue<Runnable>(1000),
+        ArrayBlockingQueue(1000),
         ThreadPoolExecutor.AbortPolicy()
     )
+
     fun execute(task: () -> Unit) {
         try {
             pool.execute(task)
@@ -26,7 +27,4 @@ class RequestResolver {
         pool.shutdown()
     }
 
-    fun shutdownNow() {
-        pool.shutdownNow()
-    }
 }
