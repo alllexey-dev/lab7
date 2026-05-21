@@ -7,7 +7,6 @@ import command.CommandSyntax
 import commands.*
 import commands.Add
 import commands.inner.InnerCommand
-import commands.inner.Save
 import commands.inner.Shutdown
 
 class CommandInvoker(val context: ServerContainer) {
@@ -39,7 +38,6 @@ class CommandInvoker(val context: ServerContainer) {
         registerCommand(removeByID)
         registerCommand(update)
         serverCommands["shutdown"] = Shutdown()
-        serverCommands["save"] = Save()
     }
 
     fun handleInput(req: Request.ExecuteCommand, token: String): Response {
