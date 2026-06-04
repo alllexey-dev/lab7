@@ -1,17 +1,17 @@
 import util.MD2Hasher
-import java.time.LocalTime
+import java.time.LocalDateTime
 
-typealias UserHashed = String
+typealias UserHashed = Pair<String, String>
 typealias Token = String
 
 class TokenDecoder {
-    private val hm = BiMap<Token, UserHashed>()
-    private val tokenExpirationMap = HashMap<Token, LocalTime>()
+    private val hm = BiMap<Token, String>()
+    private val tokenExpirationMap = HashMap<Token, LocalDateTime>()
 
     fun updateToken(userHash: UserHashed): String {
-        val token = MD2Hasher.getMD2Hash(userHash + LocalTime.now())
-        hm.insertKeyByValue(userHash, token)
-        tokenExpirationMap[token] = LocalTime.now().plusMinutes(15)
+        val token = MD2Hasher.getMD2Hash(userHash.second + LocalDateTime.now())
+        hm.insertKeyByValue(userHash.second, token)
+        tokenExpirationMap[token] = LocalDateTime.now().plusMinutes(15)
         return token
     }
 
@@ -20,10 +20,10 @@ class TokenDecoder {
         val user = hm.getValueByKey(token)!!
         val time = tokenExpirationMap[token]!!
 
-        if (time < LocalTime.now()) {
+        if (time < LocalDateTime.now()) {
             throw TokenExpiredException()
-        } else{
-            tokenExpirationMap[token] = LocalTime.now().plusMinutes(15)
+        } else {
+            tokenExpirationMap[token] = LocalDateTime.now().plusMinutes(15)
         }
 
         return user
@@ -41,7 +41,7 @@ private class BiMap<K, V> {
 
 
     fun insertKeyByValue(v: V, k: K) {
-        forward[k]?.let{
+        forward[k]?.let {
             backward.remove(it)
         }
         backward[v]?.let {

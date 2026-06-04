@@ -7,8 +7,8 @@ import command.CommandSyntax
 import commands.*
 import commands.Add
 import commands.inner.InnerCommand
-import commands.inner.Save
 import commands.inner.Shutdown
+import data.Result
 
 class CommandInvoker(val context: ServerContainer) {
     private val commands = mutableMapOf<String, Command>()
@@ -39,12 +39,11 @@ class CommandInvoker(val context: ServerContainer) {
         registerCommand(removeByID)
         registerCommand(update)
         serverCommands["shutdown"] = Shutdown()
-        serverCommands["save"] = Save()
     }
 
-    fun handleInput(req: Request.ExecuteCommand, token: String): Response {
+    fun handleInput(req: Request.ExecuteCommand, token: String): Result {
         val commandName = req.commandName
-        val command = commands[commandName] ?: return  Response.Error("команда не найдена")
+        val command = commands[commandName] ?: return  Result(false, "Команда $commandName не найдена")
 
         return command.execute(context, req.args, token)
     }

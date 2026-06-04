@@ -1,7 +1,7 @@
 import java.sql.SQLException
 
 class Dispatcher(
-    container: ServerContainer,
+    val container: ServerContainer,
 ) {
     val invoker = container.commandInvoker
     val td = TokenDecoder()
@@ -9,9 +9,10 @@ class Dispatcher(
     fun handleRequest(request: Request): Response {
         when (request) {
             is Request.ExecuteCommand -> try {
-                val skip = td.matchToken(request.userToken)
-                val result = invoker.handleInput(request, skip)
-                return result
+                val user = td.matchToken(request.userToken)
+                val result = invoker.handleInput(request, user)
+                return if (result.success) Response.Info(result.info)
+                else Response.Error(result.info)
             } catch (_: TokenExpiredException) {
                 return Response.ResetTokenPlease
             } catch (_: ExitSignal) {
@@ -27,9 +28,23 @@ class Dispatcher(
             }
 
             is Request.HandShake -> try {
-                val token = td.updateToken(request.userHash)
-                val response = Response.HandShake(invoker.getCommands(), token)
-                return response
+                val dbManager = container.dBManager
+
+                val (passwordHashed, name) = request.userHash.split(" ")
+                val user = Pair(passwordHashed, name)
+                val token: String
+                return if (request.enterType == EnterType.LOGIN && dbManager.login(name, passwordHashed).success) {
+                    token = td.updateToken(user)
+
+                    Response.HandShake(invoker.getCommands(), token)
+
+                } else if (request.enterType == EnterType.REGISTER && dbManager.register(name, passwordHashed).success) {
+                    token = td.updateToken(user)
+                    Response.HandShake(invoker.getCommands(), token)
+
+                } else Response.Error("Данное имя занято или введен неверный пароль.")
+
+
             } catch (e: Exception) {
                 println(e.message ?: "No error message specified")
             }

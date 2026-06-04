@@ -1,24 +1,36 @@
 package commands
 
-import Response
+import data.Result
 import ServerContainer
 import application.buildOrganization
-import domain.Organization
+import application.convertOrganizationFromTransferData
+import data.OrganizationTransferData
 
-class RemoveLower (
-): Command {
+class RemoveLower : Command {
     override val name = "remove_lower"
-    override val args = listOf("Name", "X", "Y", "Annual turnover", "Full name (unique)", "Employee count", "Street", "Zip code", "Type")
+    override val args = listOf(
+        "Name",
+        "X",
+        "Y",
+        "Annual turnover",
+        "Full name (unique)",
+        "Employee count",
+        "Street",
+        "Zip code",
+        "Type"
+    )
     override val description = "Удаляет из коллекции все элементы, меньше чем"
 
-    override fun execute(context: ServerContainer, args: List<String>, userHash: String): Response {
+    override fun execute(context: ServerContainer, args: List<String>, userHash: String): Result {
         val dbManager = context.dBManager
         val collectionManager = context.collectionManager
+        return try {
+            val org: OrganizationTransferData = buildOrganization(args)
+            val count = collectionManager.countLower(convertOrganizationFromTransferData(0, org))
 
-        val org: Organization = buildOrganization(args)
-        val count = collectionManager.countLower(org)
-
-        dbManager.removeLower(org, userHash)
-        return Response.Info("Из коллекции удалено $count элементов")
+            dbManager.removeLower(org, userHash)
+            Result(true, "Из коллекции удалено $count элементов")
+        } catch (e: IllegalStateException) {Result(false, e.message ?: "хз")}
+        catch (_: NumberFormatException) {Result(false, "Некорректное числовое представление.")}
     }
 }

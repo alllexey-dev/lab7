@@ -1,17 +1,20 @@
 package application
 
 
+import data.OrganizationTransferData
 import domain.Address
 import domain.Coordinates
 import domain.Organization
 import domain.OrganizationType
 import java.time.LocalDate
 
-fun buildOrganization(data: List<String>): Organization {
+fun buildOrganization(data: List<String>): OrganizationTransferData {
     val name = data[0].trim()
+
     val x = data[1].trim().toFloat()
     val y = data[2].trim().toFloat()
     val turnover = data[3].trim().toFloat()
+
     val fullName = data[4].trim()
     val empCount = data[5].trim().toLongOrNull()
     val street = data[6].trim()
@@ -27,8 +30,27 @@ fun buildOrganization(data: List<String>): Organization {
             throw IllegalStateException("Введён некоректный формат типа организации")
         }
     }
-    val addr = Address(street ?: "", zip ?: "")
-    val coordinates = Coordinates(x, y)
-    return Organization(0, name, coordinates, LocalDate.now(), turnover, fullName, empCount,orgType, addr)
+    return OrganizationTransferData(
+        name,
+        Coordinates(x, y),
+        LocalDate.now(),
+        turnover, fullName,
+        empCount,
+        orgType,
+        Address(street, zip)
+    )
+}
 
+fun convertOrganizationFromTransferData(id: Int, data: OrganizationTransferData): Organization {
+    return Organization(
+        id,
+        data.name,
+        data.coordinates,
+        data.creationDate,
+        data.annualTurnover,
+        data.fullName,
+        data.employeesCount,
+        data.type,
+        data.officialAddress
+    )
 }

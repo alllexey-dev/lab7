@@ -1,5 +1,6 @@
 package data
 
+import application.convertOrganizationFromTransferData
 import application.CollectionManager
 import domain.Address
 import domain.Coordinates
@@ -27,77 +28,80 @@ class DBManager(val collectionManager: CollectionManager) {
         initDate = LocalDate.now()
     }
 
-    fun removeGreater(organization: Organization, userHash: String) {
-        val statement = "delete from organizations where name > ? and creator_hash = ? returning id"
+    @Synchronized
+    fun removeGreater(organization: OrganizationTransferData, userName: String) {
+        val statement = "delete from organizations where name > ? and user_id = (select id from users where username = ?) returning id"
         val ids = ArrayList<Int>()
 
         connection.prepareStatement(statement).use { sqlStatement ->
             sqlStatement.setString(1, organization.name)
-            sqlStatement.setString(2, userHash)
-            sqlStatement.executeQuery().use{ rs ->
-                while(rs.next()){
+            sqlStatement.setString(2, userName)
+            sqlStatement.executeQuery().use { rs ->
+                while (rs.next()) {
                     ids.add(rs.getInt("id"))
                 }
 
             }
         }
 
-        for (id in ids){
+        for (id in ids) {
             collectionManager.removeById(id)
         }
     }
 
-    fun removeLower(organization: Organization, userHash: String) {
-        val statement = "delete from organizations where name < ? and creator_hash = ? returning id"
+    @Synchronized
+    fun removeLower(organization: OrganizationTransferData, userName: String) {
+        val statement = "delete from organizations where name < ? and user_id = (select id from users where username = ?) returning id"
         val ids = ArrayList<Int>()
 
         connection.prepareStatement(statement).use { sqlStatement ->
             sqlStatement.setString(1, organization.name)
-            sqlStatement.setString(2, userHash)
-            sqlStatement.executeQuery().use{ rs ->
-                while(rs.next()){
+            sqlStatement.setString(2, userName)
+            sqlStatement.executeQuery().use { rs ->
+                while (rs.next()) {
                     ids.add(rs.getInt("id"))
                 }
 
             }
         }
 
-        for (id in ids){
+        for (id in ids) {
             collectionManager.removeById(id)
         }
     }
 
-    fun removeById(id: Int, userHash: String) {
+    @Synchronized
+    fun removeById(id: Int, userName: String) {
 
-        val isAllowed = checkPermissions(id ,userHash)
+        val isAllowed = checkPermissions(id, userName)
 
-        if (!isAllowed){
-            throw IllegalStateException("permissions denied")
+        if (!isAllowed) {
+            throw IllegalStateException("Доступ отказан из-за недостающих прав.")
         }
 
-        val statement = "delete from organizations where id = ? and creator_hash = ?"
+        val statement = "delete from organizations where id = ?"
 
         connection.prepareStatement(statement).use { sqlStatement ->
             sqlStatement.setInt(1, id)
-            sqlStatement.setString(2, userHash)
             sqlStatement.executeUpdate()
         }
 
         collectionManager.removeById(id)
     }
 
-    fun updateById(id: Int, organization: Organization, userHash: String) {
-        val isAllowed = checkPermissions(organization.id, userHash)
+    @Synchronized
+    fun updateById(id: Int, organization: OrganizationTransferData, userName: String) {
+        val isAllowed = checkPermissions(id, userName)
 
-        if (!isAllowed){
-            throw IllegalStateException("permissions denied")
+        if (!isAllowed) {
+            throw IllegalStateException("Доступ отказан из-за недостающих прав.")
         }
 
         val statement = "update organizations " +
                 "set name = ?, x = ?, y = ?, creation_date = ?, " +
                 "turnover = ?, full_name = ?, employees_count = ?, " +
                 "type = ?, street = ?, zip = ? " +
-                "where id = ? and creator_hash = ?"
+                "where id = ?"
 
         connection.prepareStatement(statement).use { sqlStatement ->
             sqlStatement.setString(1, organization.name)
@@ -111,7 +115,6 @@ class DBManager(val collectionManager: CollectionManager) {
             sqlStatement.setString(9, organization.officialAddress.street)
             sqlStatement.setString(10, organization.officialAddress.zipCode)
             sqlStatement.setInt(11, id)
-            sqlStatement.setString(12, userHash)
 
             sqlStatement.executeUpdate()
         }
@@ -119,41 +122,48 @@ class DBManager(val collectionManager: CollectionManager) {
         collectionManager.updateById(id, organization)
     }
 
-    fun add(organization: Organization, userHash: String) {
+    @Synchronized
+    fun add(organization: OrganizationTransferData, userName: String) {
+        val statement = """
+        insert into organizations (
+            name, x, y, creation_date, turnover, full_name,
+            employees_count, type, street, zip, user_id
+        )
+        values (
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            (select id from users where username = ?)
+        )
+        returning id
+    """.trimIndent()
 
-        val statement =
-            "insert into organizations (name, x, y, creation_date, turnover, full_name, employees_count, type, street, zip, creator_hash) " +
-                    "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-
-        connection.prepareStatement(statement).use { sqlStatement ->
+        val id = connection.prepareStatement(statement).use { sqlStatement ->
             sqlStatement.setString(1, organization.name)
             sqlStatement.setFloat(2, organization.coordinates.x)
             sqlStatement.setFloat(3, organization.coordinates.y)
             sqlStatement.setString(4, organization.creationDate.toString())
             sqlStatement.setFloat(5, organization.annualTurnover)
             sqlStatement.setString(6, organization.fullName)
-            sqlStatement.setInt(7, (organization.employeesCount ?: 0).toInt())
+            sqlStatement.setObject(7, organization.employeesCount?.toInt())
             sqlStatement.setString(8, organization.type.toString())
             sqlStatement.setString(9, organization.officialAddress.street)
             sqlStatement.setString(10, organization.officialAddress.zipCode)
-            sqlStatement.setString(11, userHash)
 
-            sqlStatement.executeUpdate()
-        }
+            sqlStatement.setString(11, userName)
 
-        val idStatement = "SELECT last_value FROM organizations_id_seq"
-
-        val id = connection.prepareStatement(idStatement).executeQuery().use { resultSet ->
-            if (resultSet.next()) {
-                resultSet.getInt(1)
-            } else {
-                throw SQLException("Не удалось получить значение последовательности")
+            sqlStatement.executeQuery().use { resultSet ->
+                if (resultSet.next()) {
+                    resultSet.getInt("id")
+                } else {
+                    throw SQLException("Не удалось получить id созданной организации")
+                }
             }
         }
 
-        collectionManager.add(organization, id)
+        val org = convertOrganizationFromTransferData(id, organization)
+        collectionManager.add(org)
     }
 
+    @Synchronized
     fun downloadCollection(): List<Organization> {
 
         val organizationsList: ArrayList<Organization> = ArrayList()
@@ -192,19 +202,21 @@ class DBManager(val collectionManager: CollectionManager) {
         return organizationsList
     }
 
-    private fun checkPermissions(id: Int, userHash: String): Boolean {
+    @Synchronized
+    private fun checkPermissions(id: Int, userName: String): Boolean {
         val statement = """
         SELECT EXISTS (
             SELECT 1 
-            FROM organizations 
-            WHERE id = ? AND creator_hash = ?
+            FROM organizations o
+            JOIN users u ON o.user_id = u.id
+            WHERE o.id = ? AND u.username = ?
         )
     """.trimIndent()
 
         try {
             connection.prepareStatement(statement).use { sqlStatement ->
                 sqlStatement.setInt(1, id)
-                sqlStatement.setString(2, userHash)
+                sqlStatement.setString(2, userName)
 
                 sqlStatement.executeQuery().use { resultSet ->
                     if (resultSet.next()) {
@@ -213,8 +225,91 @@ class DBManager(val collectionManager: CollectionManager) {
                 }
             }
         } catch (_: SQLException) {
-            println("Ошибка при проверке прав доступа:")
+            println("Ошибка при проверке прав доступа")
         }
         return false
+    }
+
+    @Synchronized
+    fun register(userName: String, userHashedPassword: String): Result {
+        val sql = """
+        insert into users (username, password_hash)
+        values (?, ?)
+    """.trimIndent()
+
+        return try {
+            DriverManager.getConnection(url, user, password).use { connection ->
+                connection.prepareStatement(sql).use { statement ->
+                    statement.setString(1, userName)
+                    statement.setString(2, userHashedPassword)
+
+                    statement.executeUpdate()
+                }
+            }
+
+            Result(
+                success = true,
+                info = "Пользователь успешно зарегистрирован"
+            )
+        } catch (e: org.postgresql.util.PSQLException) {
+            if (e.sqlState == "23505") {
+                Result(
+                    success = false,
+                    info = "Пользователь с таким именем уже зарегистрирован"
+                )
+            } else {
+                Result(
+                    success = false,
+                    info = e.message ?: "Ошибка регистрации"
+                )
+            }
+        } catch (e: SQLException) {
+            Result(
+                success = false,
+                info = e.message ?: "Ошибка базы данных"
+            )
+        }
+    }
+
+    fun login(userName: String, userHashedPassword: String): Result {
+        val sql = """
+        select password_hash
+        from users
+        where username = ?
+    """.trimIndent()
+
+        return try {
+            connection.prepareStatement(sql).use { statement ->
+                statement.setString(1, userName)
+
+                statement.executeQuery().use { resultSet ->
+                    if (!resultSet.next()) {
+                        return Result(
+                            success = false,
+                            info = "Пользователь с таким именем не найден"
+                        )
+                    }
+
+                    val passwordHashFromDb = resultSet.getString("password_hash")
+
+                    if (passwordHashFromDb != userHashedPassword) {
+                        return Result(
+                            success = false,
+                            info = "Неверный пароль"
+                        )
+                    }
+
+                    return Result(
+                        success = true,
+                        info = "Вход выполнен успешно"
+                    )
+                }
+            }
+        } catch (e: SQLException) {
+            Result(
+                success = false,
+                info = e.message ?: "Ошибка при входе"
+            )
+        }
     }
 }

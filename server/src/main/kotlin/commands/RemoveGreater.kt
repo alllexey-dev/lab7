@@ -1,24 +1,35 @@
 package commands
 
-import Response
+import data.Result
 import ServerContainer
 import application.buildOrganization
-import domain.Organization
+import application.convertOrganizationFromTransferData
+import data.OrganizationTransferData
 
-class RemoveGreater (
-): Command {
+class RemoveGreater : Command {
     override val name = "remove_greater"
-    override val args = listOf("Name", "X", "Y", "Annual turnover", "Full name (unique)", "Employee count", "Street", "Zip code", "Type")
+    override val args = listOf(
+        "Name",
+        "X",
+        "Y",
+        "Annual turnover",
+        "Full name (unique)",
+        "Employee count",
+        "Street",
+        "Zip code",
+        "Type"
+    )
     override val description = "Удаляет из коллекции все элементы, превышающие заданный"
 
-    override fun execute(context: ServerContainer, args: List<String>, userHash: String): Response {
+    override fun execute(context: ServerContainer, args: List<String>, userHash: String): Result {
         val dbManager = context.dBManager
         val collectionManager = context.collectionManager
+        return try {
+            val org: OrganizationTransferData = buildOrganization(args)
+            val count = collectionManager.countGreater(convertOrganizationFromTransferData(0, org))
 
-        val org: Organization = buildOrganization(args)
-        val count = collectionManager.countGreater(org)
-
-        dbManager.removeGreater(org, userHash)
-        return Response.Info("Из коллекции удалено $count элементов")
+            dbManager.removeGreater(org, userHash)
+            Result(true, "Из коллекции удалено $count элементов")
+        } catch (_: Exception) {Result(false, "Возникла ошибка.")}
     }
 }

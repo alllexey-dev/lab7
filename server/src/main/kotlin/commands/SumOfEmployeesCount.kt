@@ -2,17 +2,16 @@ package commands
 
 import Response
 import ServerContainer
+import data.Result
 
-class SumOfEmployeesCount(
-): Command {
+class SumOfEmployeesCount : Command {
     override val name = "sum_of_employees_count"
     override val args = listOf<String>()
     override val description = "Возвращает количество работяг во всей коллекции"
 
-    override fun execute(context: ServerContainer, args: List<String>, userHash: String): Response {
+    override fun execute(context: ServerContainer, args: List<String>, userHash: String): Result {
         val collectionManager = context.collectionManager
         val count = collectionManager.sumEmployees()
-
-        return Response.Info("Общее количество работяг в коллекции: $count")
+        return Result(true, "Общее количество работяг в коллекции: $count")
     }
 }
