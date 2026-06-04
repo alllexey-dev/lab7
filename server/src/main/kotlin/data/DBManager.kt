@@ -27,6 +27,7 @@ class DBManager(val collectionManager: CollectionManager) {
         initDate = LocalDate.now()
     }
 
+    @Synchronized
     fun removeGreater(organization: Organization, userHash: String) {
         val statement = "delete from organizations where name > ? and creator_hash = ? returning id"
         val ids = ArrayList<Int>()
@@ -34,19 +35,20 @@ class DBManager(val collectionManager: CollectionManager) {
         connection.prepareStatement(statement).use { sqlStatement ->
             sqlStatement.setString(1, organization.name)
             sqlStatement.setString(2, userHash)
-            sqlStatement.executeQuery().use{ rs ->
-                while(rs.next()){
+            sqlStatement.executeQuery().use { rs ->
+                while (rs.next()) {
                     ids.add(rs.getInt("id"))
                 }
 
             }
         }
 
-        for (id in ids){
+        for (id in ids) {
             collectionManager.removeById(id)
         }
     }
 
+    @Synchronized
     fun removeLower(organization: Organization, userHash: String) {
         val statement = "delete from organizations where name < ? and creator_hash = ? returning id"
         val ids = ArrayList<Int>()
@@ -54,24 +56,25 @@ class DBManager(val collectionManager: CollectionManager) {
         connection.prepareStatement(statement).use { sqlStatement ->
             sqlStatement.setString(1, organization.name)
             sqlStatement.setString(2, userHash)
-            sqlStatement.executeQuery().use{ rs ->
-                while(rs.next()){
+            sqlStatement.executeQuery().use { rs ->
+                while (rs.next()) {
                     ids.add(rs.getInt("id"))
                 }
 
             }
         }
 
-        for (id in ids){
+        for (id in ids) {
             collectionManager.removeById(id)
         }
     }
 
+    @Synchronized
     fun removeById(id: Int, userHash: String) {
 
-        val isAllowed = checkPermissions(id ,userHash)
+        val isAllowed = checkPermissions(id, userHash)
 
-        if (!isAllowed){
+        if (!isAllowed) {
             throw IllegalStateException("permissions denied")
         }
 
@@ -86,10 +89,11 @@ class DBManager(val collectionManager: CollectionManager) {
         collectionManager.removeById(id)
     }
 
+    @Synchronized
     fun updateById(id: Int, organization: Organization, userHash: String) {
         val isAllowed = checkPermissions(organization.id, userHash)
 
-        if (!isAllowed){
+        if (!isAllowed) {
             throw IllegalStateException("permissions denied")
         }
 
@@ -119,6 +123,7 @@ class DBManager(val collectionManager: CollectionManager) {
         collectionManager.updateById(id, organization)
     }
 
+    @Synchronized
     fun add(organization: Organization, userHash: String) {
 
         val statement =
@@ -154,6 +159,7 @@ class DBManager(val collectionManager: CollectionManager) {
         collectionManager.add(organization, id)
     }
 
+    @Synchronized
     fun downloadCollection(): List<Organization> {
 
         val organizationsList: ArrayList<Organization> = ArrayList()
@@ -192,6 +198,7 @@ class DBManager(val collectionManager: CollectionManager) {
         return organizationsList
     }
 
+    @Synchronized
     private fun checkPermissions(id: Int, userHash: String): Boolean {
         val statement = """
         SELECT EXISTS (

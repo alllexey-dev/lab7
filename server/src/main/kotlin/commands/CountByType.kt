@@ -4,8 +4,7 @@ import Response
 import ServerContainer
 import domain.OrganizationType
 
-class CountByType(
-) : Command {
+class CountByType : Command {
     override val name = "count_by_type"
     override val args = listOf("Type")
     override val description = "Подсчитывает количество организаций заданного типа"

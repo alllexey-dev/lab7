@@ -3,8 +3,7 @@ package commands
 import Response
 import ServerContainer
 
-class Info(
-) : Command {
+class Info : Command {
     override val name = "info"
     override val args = listOf<String>()
     override val description = "Выводит информацию о коллекции"

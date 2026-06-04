@@ -2,8 +2,7 @@ package commands.inner
 
 import ServerContainer
 
-class Shutdown (
-): InnerCommand {
+class Shutdown : InnerCommand {
     override val name = "shutdown"
     override val description = "Завершает процесс сервера"
 
