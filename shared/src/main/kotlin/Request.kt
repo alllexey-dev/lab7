@@ -4,7 +4,8 @@ import kotlinx.serialization.Serializable
 sealed class Request {
     @Serializable
     data class HandShake(
-        val userHash: String
+        val userHash: String,
+        val enterType: EnterType
     ) : Request()
 
     @Serializable
