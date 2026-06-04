@@ -23,14 +23,14 @@ open class ClientContainer {
         hostname = env["HOST_NAME"] ?: throw Error("hostname should be specified in env")
     }
 
-    fun requestReg(): String{
+    fun requestReg(): Pair<String, String> {
         IO.printLine("Введите логин: ")
         IO.printBefore("> ")
         val login: String = IO.readLine() ?: error("login required")
         IO.printLine("Введите пароль: ")
         IO.printBefore("> ")
         val password: String = IO.readLine() ?: error("password required")
-        return MD2Hasher.getMD2Hash(login + password)
+        return Pair(MD2Hasher.getMD2Hash(password), login)
     }
 
     fun up() {
@@ -43,8 +43,21 @@ open class ClientContainer {
             client.configureBlocking(true)
             socket = client
             channelIO = ChannelIO(client)
-            val userHash = requestReg()
-            channelIO.write(Request.HandShake(userHash))
+            IO.printLine("Введите 1, чтобы зарегистрироваться, 2, чтобы войти:")
+            IO.printBefore("> ")
+            val input = IO.readLine()
+            val type = when (input?.toIntOrNull()) {
+                1 -> {
+                    EnterType.REGISTER
+                }
+                2 -> {
+                    EnterType.LOGIN
+                }
+                else -> throw Error("invalid input")
+            }
+            val user = requestReg()
+            channelIO.write(Request.HandShake("${user.first} ${user.second}", type))
+
             val handshakeResponse = channelIO.read() ?: return up()
             resolver.resolve(handshakeResponse)
             //println("получен токен:$userToken")

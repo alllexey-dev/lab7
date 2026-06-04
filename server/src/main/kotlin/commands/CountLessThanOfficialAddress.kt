@@ -2,6 +2,7 @@ package commands
 
 import Response
 import ServerContainer
+import data.Result
 import domain.Address
 
 class CountLessThanOfficialAddress : Command {
@@ -9,7 +10,7 @@ class CountLessThanOfficialAddress : Command {
     override val args = listOf("Street", "Zip")
     override val description = "Подсчитывает количество организаций чей адрес меньше заданного"
 
-    override fun execute(context: ServerContainer, args: List<String>, userHash: String): Response {
+    override fun execute(context: ServerContainer, args: List<String>, userHash: String): Result {
         val collectionManager = context.collectionManager
 
         val street = args[0]
@@ -18,6 +19,6 @@ class CountLessThanOfficialAddress : Command {
 
         val count = collectionManager.countLessAddress(address)
 
-        return Response.Info("Количество организаций с меньшим адресом - $count")
+        return Result(true, "Организаций с меньшим адресом: $count")
     }
 }
