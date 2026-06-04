@@ -1,9 +1,12 @@
+import org.apache.logging.log4j.Level
 import org.apache.logging.log4j.kotlin.logger
 import util.PropertiesParser
 import java.net.InetSocketAddress
 import java.nio.channels.SelectionKey
 import java.nio.channels.Selector
 import java.nio.channels.ServerSocketChannel
+import kotlin.text.isBlank
+import kotlin.text.split
 
 open class GatewayContainer {
     val balancer = Balancer()
@@ -31,7 +34,7 @@ open class GatewayContainer {
 
             println("Gateway started at 127.0.0.1:$serverPort")
             while (true) {
-
+                processInput()
                 selector.selectNow()
                 val selectionIterator = selector.selectedKeys().iterator()
                 while (selectionIterator.hasNext()) {
@@ -83,6 +86,27 @@ open class GatewayContainer {
         } catch (_: ExitSignal) {
             println("Сервер выключается.")
             return
+        }
+    }
+    fun processInput(){
+        val input: String?
+        input = if (System.`in`.available() > 0) {
+            readlnOrNull()
+        } else null
+
+        if (input != null) {
+            try {
+                if (!input.isBlank()) {
+                    val tokens = input.split(" ")
+                    val name = tokens[0]
+                    val args = tokens.drop(1)
+                    logger.log(Level.INFO, "$name, $args")
+                    if (input.equals("shutdown")) throw ExitSignal()
+
+                }
+            } catch (e: IllegalArgumentException) {
+                println(e.message ?: "")
+            }
         }
     }
 }
