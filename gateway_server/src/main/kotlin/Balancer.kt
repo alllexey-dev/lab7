@@ -40,9 +40,9 @@ class Balancer {
             return Response.Error("нет вставших серверов(")
         }
 
-        channel.read()
+        channel.write(request)
 
-        return channel.read()!!
+        return channel.read() ?: Response.Error("сервер не прислал ответ")
     }
 
     private fun getNextServer(): GatewayToServersChannel {
@@ -59,7 +59,7 @@ class Balancer {
         channel.write(Request.Ping)
 
         if (channel.read() !is Response.Pong) {
-            availableServers.drop(counter)
+            availableServers.removeAt(index)
             return getNextServer()
         }
 
