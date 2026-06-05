@@ -2,7 +2,6 @@ import application.CommandInvoker
 import data.DBManager
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import org.apache.logging.log4j.Level
 import org.apache.logging.log4j.kotlin.logger
 import thread.RequestResolver
 import util.PropertiesParser
@@ -13,6 +12,7 @@ import java.nio.channels.Selector
 import java.nio.channels.ServerSocketChannel
 import java.nio.channels.SocketChannel
 import java.util.concurrent.ForkJoinPool
+import commands.inner.ExitSignal
 
 class ServerContainer {
     var commandInvoker = CommandInvoker(this)

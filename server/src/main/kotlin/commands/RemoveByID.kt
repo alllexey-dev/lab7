@@ -2,21 +2,22 @@ package commands
 
 import Response
 import ServerContainer
+import data.Result
 
 class RemoveByID : Command {
     override val name = "remove_by_id"
-    override val args = listOf("ID")
-    override val description = "Удаляет из коллекции элемент по ID"
+    override val args = listOf("Id")
+    override val description = "Удаляет из коллекции элемент по Id"
 
-    override fun execute(context: ServerContainer, args: List<String>, userHash: String): Response {
+    override fun execute(context: ServerContainer, args: List<String>, userHash: String): Result {
         val dbManager = context.dBManager
-        try {
+        return try {
             dbManager.removeById(args[0].toInt(), userHash)
-            return Response.Info("Элемент с ID ${args[0]} удален.")
+            Result(true, "Элемент с Id ${args[0]} удален.")
         } catch (_: NumberFormatException) {
-            throw IllegalArgumentException("Введенный аргумент не является числом.")
+            Result(false, "Введенный аргумент не является числом.")
         } catch (e: IllegalStateException) {
-            return Response.Error(e.message ?: "")
+            Result(false, e.message ?: "")
         }
     }
 }

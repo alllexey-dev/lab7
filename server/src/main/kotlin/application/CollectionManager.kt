@@ -1,5 +1,6 @@
 package application
 
+import data.OrganizationTransferData
 import domain.Address
 import domain.Organization
 import domain.OrganizationRepository
@@ -35,28 +36,32 @@ class CollectionManager : OrganizationRepository {
         else initDate.toString()
     }
 
-    override fun add(organization: Organization, id: Int) {
-        organization.id = id
+    override fun add(organization: Organization){
         if (organizationCollection.isEmpty()) initDate = LocalDate.now()
         if (!checkFullNameUnique(organization.fullName)) {
             organizationCollection.addLast(organization)
         } else throw IllegalArgumentException("Полное имя организации не уникально.")
     }
 
-    override fun updateById(id: Int, organization: Organization) {
-        organizationCollection.removeIf { it.id == id }
-        val generatedOrg = Organization(
-            id = id,
-            name = organization.name,
-            coordinates = organization.coordinates,
-            creationDate = organization.creationDate,
-            annualTurnover = organization.annualTurnover,
-            fullName = organization.fullName,
-            employeesCount = organization.employeesCount,
-            type = organization.type,
-            officialAddress = organization.officialAddress
-        )
-        organizationCollection.addLast(generatedOrg)
+    @Deprecated("Id is redundant here, use add(Organization) instead)")
+    override fun add(organization: Organization, id: Int) {
+        if (organizationCollection.isEmpty()) initDate = LocalDate.now()
+        if (!checkFullNameUnique(organization.fullName)) {
+            organizationCollection.addLast(organization)
+        } else throw IllegalArgumentException("Полное имя организации не уникально.")
+    }
+
+    override fun updateById(id: Int, organization: OrganizationTransferData) {
+        organizationCollection.find { it.id == id }?.let {
+            it.type = organization.type
+            it.fullName = organization.fullName
+            it.employeesCount = organization.employeesCount
+            it.officialAddress = organization.officialAddress
+            it.coordinates = organization.coordinates
+            it.name = organization.name
+            it.annualTurnover = organization.annualTurnover
+        }
+
     }
 
     override fun removeById(id: Int) {

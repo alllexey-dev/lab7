@@ -1,16 +1,16 @@
 import util.MD2Hasher
 import java.time.LocalDateTime
 
-typealias UserHashed = String
+typealias UserHashed = Pair<String, String>
 typealias Token = String
 
 class TokenDecoder {
-    private val hm = BiMap<Token, UserHashed>()
+    private val hm = BiMap<Token, String>()
     private val tokenExpirationMap = HashMap<Token, LocalDateTime>()
 
     fun updateToken(userHash: UserHashed): String {
-        val token = MD2Hasher.getMD2Hash(userHash + LocalDateTime.now())
-        hm.insertKeyByValue(userHash, token)
+        val token = MD2Hasher.getMD2Hash(userHash.second + LocalDateTime.now())
+        hm.insertKeyByValue(userHash.second, token)
         tokenExpirationMap[token] = LocalDateTime.now().plusMinutes(15)
         return token
     }

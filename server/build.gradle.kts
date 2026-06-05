@@ -37,6 +37,7 @@ tasks.shadowJar {
 
         archiveBaseName.set("ImopServer")
         archiveClassifier.set("")
+        archiveVersion.set("")
     }
 }
 
