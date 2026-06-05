@@ -12,23 +12,33 @@ class ClientsToGatewayChannel(
 
     fun read(): Request? {
         if (size == -1) {
-            val bytesRead = channel.read(sizeBuffer)
-            //println(bytesRead)
-            if (bytesRead == -1) throw Exception("Channel closed")
-            if (sizeBuffer.hasRemaining()) return null
+
+            while (sizeBuffer.hasRemaining()) {
+                val bytesRead = channel.read(sizeBuffer)
+                if (bytesRead == -1) throw Exception("Channel closed")
+                if (bytesRead == 0) {
+
+                    Thread.sleep(5)
+                }
+            }
 
             sizeBuffer.flip()
             size = sizeBuffer.int
-            //println(size)
             sizeBuffer.clear()
 
             dataBuffer = ByteBuffer.allocate(size)
         }
 
-        val bytesReadData = channel.read(dataBuffer)
-        if (bytesReadData == -1) throw Exception("Channel closed")
 
-        if (dataBuffer.hasRemaining()) return null
+        while (dataBuffer.hasRemaining()) {
+            val bytesReadData = channel.read(dataBuffer)
+            if (bytesReadData == -1) throw Exception("Channel closed")
+            if (bytesReadData == 0) {
+
+                Thread.sleep(5)
+            }
+        }
+
 
         val json = String(dataBuffer.array(), Charsets.UTF_8)
         val rpc = Json.decodeFromString<Request>(json)
@@ -38,8 +48,9 @@ class ClientsToGatewayChannel(
         return rpc
     }
 
+
     fun write(message: Response) {
-        val json = Json.encodeToString(message)
+        val json = Json.encodeToString<Response>(message)
         val bodyBytes = json.toByteArray(Charsets.UTF_8)
 
         val writeBuffer = ByteBuffer.allocate(4 + bodyBytes.size)

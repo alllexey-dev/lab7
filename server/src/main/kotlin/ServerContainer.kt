@@ -42,7 +42,7 @@ class ServerContainer {
             balancerPort.toIntOrNull() ?: error("no")
         )
         SocketChannel.open(address).use{ socketChannel ->
-            val json = Json.encodeToString(Request.HiBalancer(
+            val json = Json.encodeToString<Request>(Request.HiBalancer(
                 hostname,
                 serverPort.toIntOrNull() ?: throw Error("check for server port format in env file")
             ))

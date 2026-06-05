@@ -77,6 +77,7 @@ open class GatewayContainer {
                         } catch (e: Exception) {
                             logger.info { e.message }
                             println("Клиент отключился или произошла ошибка")
+                            println(e.printStackTrace())
                             key.channel().close()
                             key.cancel()
                         }
