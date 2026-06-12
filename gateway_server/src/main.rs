@@ -1,6 +1,6 @@
 mod balancer;
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use balancer::Balancer;
 use lab7_shared::{read_env, read_frame, write_frame, Request};
 use std::net::{TcpListener, TcpStream};
@@ -9,7 +9,10 @@ use std::thread;
 
 fn handle_client(balancer: Arc<Mutex<Balancer>>, mut stream: TcpStream) -> Result<()> {
     let request: Request = read_frame(&mut stream)?;
-    let response = balancer.lock().unwrap().handle(request);
+    let response = balancer
+        .lock()
+        .map_err(|_| anyhow!("Balancer lock is poisoned"))?
+        .handle(request);
     write_frame(&mut stream, &response)
 }
 

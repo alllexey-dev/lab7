@@ -30,13 +30,13 @@ impl Ord for Address {
         let zip = self
             .zip_code
             .as_deref()
-            .unwrap_or("")
-            .cmp(other.zip_code.as_deref().unwrap_or(""));
+            .map_or("", |zip| zip)
+            .cmp(other.zip_code.as_deref().map_or("", |zip| zip));
         if zip == Ordering::Equal {
             self.street
                 .as_deref()
-                .unwrap_or("")
-                .cmp(other.street.as_deref().unwrap_or(""))
+                .map_or("", |street| street)
+                .cmp(other.street.as_deref().map_or("", |street| street))
         } else {
             zip
         }
@@ -54,8 +54,8 @@ impl Display for Address {
         write!(
             f,
             "Address(street={}, zipCode={})",
-            self.street.as_deref().unwrap_or("null"),
-            self.zip_code.as_deref().unwrap_or("null")
+            self.street.as_deref().map_or("null", |street| street),
+            self.zip_code.as_deref().map_or("null", |zip| zip)
         )
     }
 }
@@ -146,7 +146,7 @@ impl Display for Organization {
             self.data
                 .employees_count
                 .map(|v| v.to_string())
-                .unwrap_or_else(|| "null".to_string())
+                .map_or_else(|| "null".to_string(), |value| value)
         )
     }
 }

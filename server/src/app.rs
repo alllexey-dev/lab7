@@ -160,7 +160,11 @@ impl App {
     }
 
     fn show(&self) -> Result<String> {
-        let collection = self.collection.read().unwrap().sorted();
+        let collection = self
+            .collection
+            .read()
+            .map_err(|_| anyhow!("Collection lock is poisoned"))?
+            .sorted();
         if collection.is_empty() {
             Ok("Вы еще не успели насоздавать шедевров...".to_string())
         } else {
@@ -173,11 +177,11 @@ impl App {
     }
 
     fn count_by_type(&self, args: &[String]) -> Result<String> {
-        let org_type = OrganizationType::parse(args.first().map(String::as_str).unwrap_or(""))?;
+        let org_type = OrganizationType::parse(args.first().map_or("", String::as_str))?;
         let count = self
             .collection
             .read()
-            .unwrap()
+            .map_err(|_| anyhow!("Collection lock is poisoned"))?
             .organizations
             .iter()
             .filter(|org| org.data.organization_type == org_type)
@@ -186,7 +190,10 @@ impl App {
     }
 
     fn info(&self) -> Result<String> {
-        let collection = self.collection.read().unwrap();
+        let collection = self
+            .collection
+            .read()
+            .map_err(|_| anyhow!("Collection lock is poisoned"))?;
         if collection.organizations.is_empty() {
             return Ok("коллекция пуста:(".to_string());
         }
@@ -197,7 +204,7 @@ impl App {
             collection
                 .init_date
                 .map(|date| date.to_string())
-                .unwrap_or_else(|| "Коллекция еще не создана".to_string())
+                .map_or_else(|| "Коллекция еще не создана".to_string(), |date| date)
         );
         for org in collection.sorted() {
             message.push_str(&format!("{} с id номер {}\n", org.data.full_name, org.id));
@@ -209,10 +216,10 @@ impl App {
         let sum: i64 = self
             .collection
             .read()
-            .unwrap()
+            .map_err(|_| anyhow!("Collection lock is poisoned"))?
             .organizations
             .iter()
-            .map(|org| org.data.employees_count.unwrap_or(0))
+            .map(|org| org.data.employees_count.map_or(0, |count| count))
             .sum();
         Ok(format!("Общее количество работяг в коллекции: {sum}"))
     }
@@ -225,7 +232,7 @@ impl App {
         let count = self
             .collection
             .read()
-            .unwrap()
+            .map_err(|_| anyhow!("Collection lock is poisoned"))?
             .organizations
             .iter()
             .filter(|org| org.data.official_address < address)

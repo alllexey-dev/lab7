@@ -100,7 +100,7 @@ impl ClientApp {
         self.scripts.running = true;
         while let Some(command) = self.scripts.get_line() {
             if command == "execute_script" {
-                let name = self.scripts.get_line().context("expected script name")?;
+                let name = self.scripts.get_line().context("script name is required")?;
                 self.scripts.add(name)?;
                 continue;
             }
@@ -111,7 +111,11 @@ impl ClientApp {
                 .ok_or_else(|| anyhow!("Неизвестная комманда: {command}"))?;
             let mut args = Vec::new();
             for _ in &syntax.args {
-                args.push(self.scripts.get_line().unwrap_or_default());
+                args.push(
+                    self.scripts
+                        .get_line()
+                        .context("script command argument is required")?,
+                );
             }
             let response = self.send(Request::ExecuteCommand {
                 user_token: self.token.clone(),

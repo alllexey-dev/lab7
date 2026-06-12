@@ -117,7 +117,7 @@ impl Database {
         let id: i32 = row.get("id");
         self.collection
             .write()
-            .unwrap()
+            .map_err(|_| anyhow!("Collection lock is poisoned"))?
             .add(Organization::new(id, data)?)?;
         Ok(())
     }
@@ -137,7 +137,10 @@ impl Database {
         }
         let mut client = self.connect()?;
         client.execute("delete from organizations where id = $1", &[&id])?;
-        self.collection.write().unwrap().remove(id);
+        self.collection
+            .write()
+            .map_err(|_| anyhow!("Collection lock is poisoned"))?
+            .remove(id);
         Ok(())
     }
 
@@ -153,7 +156,10 @@ impl Database {
             &[&data.name, &data.coordinates.x, &data.coordinates.y, &data.creation_date, &data.annual_turnover, &data.full_name,
               &employees_count, &data.organization_type.to_string(), &data.official_address.street, &data.official_address.zip_code, &id],
         )?;
-        self.collection.write().unwrap().update(id, data);
+        self.collection
+            .write()
+            .map_err(|_| anyhow!("Collection lock is poisoned"))?
+            .update(id, data);
         Ok(())
     }
 
@@ -174,7 +180,10 @@ impl Database {
             .into_iter()
             .map(|row| row.get("id"))
             .collect();
-        let mut collection = self.collection.write().unwrap();
+        let mut collection = self
+            .collection
+            .write()
+            .map_err(|_| anyhow!("Collection lock is poisoned"))?;
         for id in &ids {
             collection.remove(*id);
         }

@@ -2,7 +2,7 @@ mod app;
 mod collection;
 mod db;
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use app::App;
 use collection::CollectionManager;
 use db::Database;
@@ -42,7 +42,7 @@ fn main() -> Result<()> {
     let db = Database::new(&env, collection.clone())?;
     collection
         .write()
-        .unwrap()
+        .map_err(|_| anyhow!("Collection lock is poisoned"))?
         .upload(db.download_collection()?);
     let app = Arc::new(App { db, collection });
 
