@@ -1,66 +1,127 @@
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.io.EOFException
 import java.nio.ByteBuffer
 import java.nio.channels.SocketChannel
 
 class ClientsToGatewayChannel(
     private val channel: SocketChannel,
 ) {
-    private var size = -1
-    private val sizeBuffer = ByteBuffer.allocate(4)
-    private lateinit var dataBuffer: ByteBuffer
+    private val headerBuffer: ByteBuffer = ByteBuffer.allocate(4)
+    private var bodyBuffer: ByteBuffer? = null
+    private var writeBuffer: ByteBuffer? = null
 
-    fun read(): Request? {
-        if (size == -1) {
+    fun readRequestIfReady(): Request? {
 
-            while (sizeBuffer.hasRemaining()) {
-                val bytesRead = channel.read(sizeBuffer)
-                if (bytesRead == -1) throw Exception("Channel closed")
-                if (bytesRead == 0) {
+        if (bodyBuffer == null) {
 
-                    Thread.sleep(5)
+            while (headerBuffer.hasRemaining()) {
+
+                val readHeader =
+                    channel.read(headerBuffer)
+
+                if (readHeader == -1) {
+                    throw EOFException("Channel closed")
+                }
+
+                if (readHeader == 0) {
+                    return null
                 }
             }
 
-            sizeBuffer.flip()
-            size = sizeBuffer.int
-            sizeBuffer.clear()
+            headerBuffer.flip()
 
-            dataBuffer = ByteBuffer.allocate(size)
+            val size = headerBuffer.int
+
+            headerBuffer.clear()
+
+            if (size < 0) {
+                throw IllegalStateException(
+                    "Negative frame size"
+                )
+            }
+
+            bodyBuffer =
+                ByteBuffer.allocate(size)
         }
 
+        val body =
+            bodyBuffer ?: return null
 
-        while (dataBuffer.hasRemaining()) {
-            val bytesReadData = channel.read(dataBuffer)
-            if (bytesReadData == -1) throw Exception("Channel closed")
-            if (bytesReadData == 0) {
+        while (body.hasRemaining()) {
 
-                Thread.sleep(5)
+            val readBody =
+                channel.read(body)
+
+            if (readBody == -1) {
+                throw EOFException("Channel closed")
+            }
+
+            if (readBody == 0) {
+                return null
             }
         }
 
+        body.flip()
 
-        val json = String(dataBuffer.array(), Charsets.UTF_8)
-        val rpc = Json.decodeFromString<Request>(json)
+        val bytes =
+            ByteArray(body.remaining())
 
-        size = -1
+        body.get(bytes)
 
-        return rpc
+        bodyBuffer = null
+
+        val json =
+            String(bytes, Charsets.UTF_8)
+
+        return Json.decodeFromString<Request>(json)
     }
 
+    fun prepareResponse(
+        response: Response
+    ) {
 
-    fun write(message: Response) {
-        val json = Json.encodeToString<Response>(message)
-        val bodyBytes = json.toByteArray(Charsets.UTF_8)
+        val json =
+            Json.encodeToString(response)
 
-        val writeBuffer = ByteBuffer.allocate(4 + bodyBytes.size)
-        writeBuffer.putInt(bodyBytes.size)
-        writeBuffer.put(bodyBytes)
-        writeBuffer.flip()
+        val bytes =
+            json.toByteArray(Charsets.UTF_8)
 
-        while (writeBuffer.hasRemaining()) {
-            val written = channel.write(writeBuffer)
-            if (written == -1) throw Exception("Disconnected while writing")
+        println(
+            "WRITE RESPONSE JSON: $json"
+        )
+
+        writeBuffer =
+            ByteBuffer.allocate(
+                4 + bytes.size
+            ).apply {
+
+                putInt(bytes.size)
+
+                put(bytes)
+
+                flip()
+            }
+    }
+
+    fun writeResponseIfReady(): Boolean {
+
+        val buffer =
+            writeBuffer ?: return true
+
+        val written =
+            channel.write(buffer)
+
+        if (written == -1) {
+            throw EOFException("closed")
         }
+
+        if (buffer.hasRemaining()) {
+            return false
+        }
+
+        writeBuffer = null
+
+        return true
     }
 }
