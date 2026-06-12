@@ -2,24 +2,25 @@ mod app;
 mod collection;
 mod db;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use app::App;
 use collection::CollectionManager;
 use db::Database;
 use lab7_shared::{read_env, read_frame, write_frame, Request, Response};
-use std::net::{TcpListener, TcpStream};
-use std::sync::{Arc, RwLock};
-use std::thread;
+use std::sync::Arc;
+use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::RwLock;
 
-fn handle_client(app: Arc<App>, mut stream: TcpStream) -> Result<()> {
-    let request: Request = read_frame(&mut stream)?;
+async fn handle_client(app: Arc<App>, mut stream: TcpStream) -> Result<()> {
+    let request: Request = read_frame(&mut stream).await?;
     println!("SERVER GOT REQUEST: {request:?}");
-    let response = app.handle(request);
+    let response = app.handle(request).await;
     println!("SERVER RESPONSE: {response:?}");
-    write_frame(&mut stream, &response)
+    write_frame(&mut stream, &response).await
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let env = read_env(".env")?;
     let host = env
         .get("HOST_NAME")
@@ -42,29 +43,30 @@ fn main() -> Result<()> {
     let db = Database::new(&env, collection.clone())?;
     collection
         .write()
-        .map_err(|_| anyhow!("Collection lock is poisoned"))?
-        .upload(db.download_collection()?);
+        .await
+        .upload(db.download_collection().await?);
     let app = Arc::new(App { db, collection });
 
-    if let Ok(mut gateway) = TcpStream::connect((gw_host.as_str(), gw_port)) {
+    if let Ok(mut gateway) = TcpStream::connect((gw_host.as_str(), gw_port)).await {
         let _ = write_frame(
             &mut gateway,
             &Request::HiBalancer {
                 host: host.clone(),
                 port,
             },
-        );
-        let _: Result<Response> = read_frame(&mut gateway);
+        )
+        .await;
+        let _: Result<Response> = read_frame(&mut gateway).await;
     }
 
-    let listener = TcpListener::bind((host.as_str(), port))?;
+    let listener = TcpListener::bind((host.as_str(), port)).await?;
     println!("Server started at {host}:{port}");
-    for stream in listener.incoming() {
+    loop {
         let app = app.clone();
-        match stream {
-            Ok(stream) => {
-                thread::spawn(move || {
-                    if let Err(err) = handle_client(app, stream) {
+        match listener.accept().await {
+            Ok((stream, _addr)) => {
+                tokio::spawn(async move {
+                    if let Err(err) = handle_client(app, stream).await {
                         eprintln!("{err:?}");
                     }
                 });
@@ -72,5 +74,4 @@ fn main() -> Result<()> {
             Err(err) => eprintln!("{err:?}"),
         }
     }
-    Ok(())
 }

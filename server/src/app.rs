@@ -6,7 +6,8 @@ use lab7_shared::{
     Request, Response,
 };
 use std::cmp::Ordering;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use uuid::Uuid;
 
 pub struct App {
@@ -58,19 +59,19 @@ impl App {
         ]
     }
 
-    pub fn handle(&self, request: Request) -> Response {
+    pub async fn handle(&self, request: Request) -> Response {
         match request {
             Request::Ping => Response::Pong,
             Request::HandShake {
                 user_hash,
                 enter_type,
-            } => self.handshake(&user_hash, enter_type),
+            } => self.handshake(&user_hash, enter_type).await,
             Request::ExecuteCommand {
                 user_token,
                 command_name,
                 args,
             } => {
-                let user = match self.db.validate_token(&user_token) {
+                let user = match self.db.validate_token(&user_token).await {
                     Ok(Some(user)) => user,
                     Ok(None) => return Response::ResetTokenPlease,
                     Err(err) => {
@@ -79,7 +80,7 @@ impl App {
                         }
                     }
                 };
-                match self.execute(&command_name, &args, &user) {
+                match self.execute(&command_name, &args, &user).await {
                     Ok(message) => Response::Info { message },
                     Err(err) => Response::Error {
                         message: err.to_string(),
@@ -92,15 +93,15 @@ impl App {
         }
     }
 
-    fn handshake(&self, user_hash: &str, enter_type: EnterType) -> Response {
+    async fn handshake(&self, user_hash: &str, enter_type: EnterType) -> Response {
         let Some((password_hash, name)) = user_hash.split_once(' ') else {
             return Response::Error {
                 message: "Handshake error".to_string(),
             };
         };
         let result = match enter_type {
-            EnterType::Login => self.db.login(name, password_hash).map(|_| ()),
-            EnterType::Register => self.db.register(name, password_hash).map(|_| ()),
+            EnterType::Login => self.db.login(name, password_hash).await.map(|_| ()),
+            EnterType::Register => self.db.register(name, password_hash).await.map(|_| ()),
         };
         if result.is_err() {
             return Response::Error {
@@ -108,7 +109,7 @@ impl App {
             };
         }
         let token = lab7_shared::md2_hash(&Uuid::new_v4().to_string());
-        if let Err(err) = self.db.create_session(&token, name) {
+        if let Err(err) = self.db.create_session(&token, name).await {
             return Response::Error {
                 message: err.to_string(),
             };
@@ -119,25 +120,31 @@ impl App {
         }
     }
 
-    fn execute(&self, name: &str, args: &[String], user: &str) -> Result<String> {
+    async fn execute(&self, name: &str, args: &[String], user: &str) -> Result<String> {
         match name {
-            "show" => self.show(),
+            "show" => self.show().await,
             "add" => {
-                self.db.add(build_organization(args)?, user)?;
+                self.db.add(build_organization(args)?, user).await?;
                 Ok("Организация успешно добавлена".to_string())
             }
-            "count_by_type" => self.count_by_type(args),
-            "info" => self.info(),
-            "sum_of_employees_count" => self.sum_of_employees_count(),
-            "count_less_than_official_address" => self.count_less_than_official_address(args),
+            "count_by_type" => self.count_by_type(args).await,
+            "info" => self.info().await,
+            "sum_of_employees_count" => self.sum_of_employees_count().await,
+            "count_less_than_official_address" => self.count_less_than_official_address(args).await,
             "remove_lower" => {
                 let data = build_organization(args)?;
-                let count = self.db.remove_by_name_cmp(&data, user, Ordering::Less)?;
+                let count = self
+                    .db
+                    .remove_by_name_cmp(&data, user, Ordering::Less)
+                    .await?;
                 Ok(format!("Из коллекции удалено {count} элементов"))
             }
             "remove_greater" => {
                 let data = build_organization(args)?;
-                let count = self.db.remove_by_name_cmp(&data, user, Ordering::Greater)?;
+                let count = self
+                    .db
+                    .remove_by_name_cmp(&data, user, Ordering::Greater)
+                    .await?;
                 Ok(format!("Из коллекции удалено {count} элементов"))
             }
             "remove_by_id" => {
@@ -146,25 +153,22 @@ impl App {
                     .context("Id required")?
                     .parse::<i32>()
                     .context("Введенный аргумент не является числом.")?;
-                self.db.remove_by_id(id, user)?;
+                self.db.remove_by_id(id, user).await?;
                 Ok(format!("Элемент с Id {id} удален."))
             }
             "update" => {
                 let id = args.first().context("Id required")?.parse::<i32>()?;
                 self.db
-                    .update_by_id(id, build_organization(&args[1..])?, user)?;
+                    .update_by_id(id, build_organization(&args[1..])?, user)
+                    .await?;
                 Ok("Организация успешно обновлена.".to_string())
             }
             _ => Err(anyhow!("Команда {name} не найдена")),
         }
     }
 
-    fn show(&self) -> Result<String> {
-        let collection = self
-            .collection
-            .read()
-            .map_err(|_| anyhow!("Collection lock is poisoned"))?
-            .sorted();
+    async fn show(&self) -> Result<String> {
+        let collection = self.collection.read().await.sorted();
         if collection.is_empty() {
             Ok("Вы еще не успели насоздавать шедевров...".to_string())
         } else {
@@ -176,12 +180,12 @@ impl App {
         }
     }
 
-    fn count_by_type(&self, args: &[String]) -> Result<String> {
+    async fn count_by_type(&self, args: &[String]) -> Result<String> {
         let org_type = OrganizationType::parse(args.first().map_or("", String::as_str))?;
         let count = self
             .collection
             .read()
-            .map_err(|_| anyhow!("Collection lock is poisoned"))?
+            .await
             .organizations
             .iter()
             .filter(|org| org.data.organization_type == org_type)
@@ -189,11 +193,8 @@ impl App {
         Ok(count.to_string())
     }
 
-    fn info(&self) -> Result<String> {
-        let collection = self
-            .collection
-            .read()
-            .map_err(|_| anyhow!("Collection lock is poisoned"))?;
+    async fn info(&self) -> Result<String> {
+        let collection = self.collection.read().await;
         if collection.organizations.is_empty() {
             return Ok("коллекция пуста:(".to_string());
         }
@@ -212,11 +213,11 @@ impl App {
         Ok(message)
     }
 
-    fn sum_of_employees_count(&self) -> Result<String> {
+    async fn sum_of_employees_count(&self) -> Result<String> {
         let sum: i64 = self
             .collection
             .read()
-            .map_err(|_| anyhow!("Collection lock is poisoned"))?
+            .await
             .organizations
             .iter()
             .map(|org| org.data.employees_count.map_or(0, |count| count))
@@ -224,7 +225,7 @@ impl App {
         Ok(format!("Общее количество работяг в коллекции: {sum}"))
     }
 
-    fn count_less_than_official_address(&self, args: &[String]) -> Result<String> {
+    async fn count_less_than_official_address(&self, args: &[String]) -> Result<String> {
         let address = Address {
             street: args.first().cloned(),
             zip_code: args.get(1).cloned(),
@@ -232,7 +233,7 @@ impl App {
         let count = self
             .collection
             .read()
-            .map_err(|_| anyhow!("Collection lock is poisoned"))?
+            .await
             .organizations
             .iter()
             .filter(|org| org.data.official_address < address)

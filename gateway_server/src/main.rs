@@ -1,22 +1,20 @@
 mod balancer;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use balancer::Balancer;
 use lab7_shared::{read_env, read_frame, write_frame, Request};
-use std::net::{TcpListener, TcpStream};
-use std::sync::{Arc, Mutex};
-use std::thread;
+use std::sync::Arc;
+use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::Mutex;
 
-fn handle_client(balancer: Arc<Mutex<Balancer>>, mut stream: TcpStream) -> Result<()> {
-    let request: Request = read_frame(&mut stream)?;
-    let response = balancer
-        .lock()
-        .map_err(|_| anyhow!("Balancer lock is poisoned"))?
-        .handle(request);
-    write_frame(&mut stream, &response)
+async fn handle_client(balancer: Arc<Mutex<Balancer>>, mut stream: TcpStream) -> Result<()> {
+    let request: Request = read_frame(&mut stream).await?;
+    let response = balancer.lock().await.handle(request).await;
+    write_frame(&mut stream, &response).await
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let env = read_env(".env")?;
     let host = env
         .get("GW_HOST")
@@ -26,16 +24,16 @@ fn main() -> Result<()> {
         .get("GW_PORT")
         .context("check for GW_PORT in .env")?
         .parse()?;
-    let listener = TcpListener::bind((host.as_str(), port))?;
+    let listener = TcpListener::bind((host.as_str(), port)).await?;
     let balancer = Arc::new(Mutex::new(Balancer::default()));
 
     println!("Gateway started at {host}:{port}");
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
+    loop {
+        match listener.accept().await {
+            Ok((stream, _addr)) => {
                 let balancer = balancer.clone();
-                thread::spawn(move || {
-                    if let Err(err) = handle_client(balancer, stream) {
+                tokio::spawn(async move {
+                    if let Err(err) = handle_client(balancer, stream).await {
                         eprintln!("{err:?}");
                     }
                 });
@@ -43,5 +41,4 @@ fn main() -> Result<()> {
             Err(err) => eprintln!("{err:?}"),
         }
     }
-    Ok(())
 }

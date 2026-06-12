@@ -3,7 +3,7 @@ use anyhow::{anyhow, Context, Result};
 use lab7_shared::{read_frame, write_frame, CommandSyntax, Request, Response};
 use std::collections::HashMap;
 use std::io::{self, Write};
-use std::net::TcpStream;
+use tokio::net::TcpStream;
 
 pub struct ClientApp {
     pub host: String,
@@ -24,14 +24,14 @@ impl ClientApp {
         }
     }
 
-    fn connect(&self) -> Result<TcpStream> {
-        Ok(TcpStream::connect((self.host.as_str(), self.port))?)
+    async fn connect(&self) -> Result<TcpStream> {
+        Ok(TcpStream::connect((self.host.as_str(), self.port)).await?)
     }
 
-    pub fn send(&self, request: Request) -> Result<Response> {
-        let mut stream = self.connect()?;
-        write_frame(&mut stream, &request)?;
-        read_frame(&mut stream)
+    pub async fn send(&self, request: Request) -> Result<Response> {
+        let mut stream = self.connect().await?;
+        write_frame(&mut stream, &request).await?;
+        read_frame(&mut stream).await
     }
 
     pub fn resolve_response(&mut self, response: Response) -> Result<bool> {
@@ -52,7 +52,7 @@ impl ClientApp {
         Ok(true)
     }
 
-    pub fn run_command(&mut self, command: &str) -> Result<bool> {
+    pub async fn run_command(&mut self, command: &str) -> Result<bool> {
         match command {
             "help" => {
                 for syntax in self.commands.values() {
@@ -71,7 +71,7 @@ impl ClientApp {
                 let path = read_prompt("")?;
                 self.scripts.add(path)?;
                 if !self.scripts.running {
-                    self.resolve_script()
+                    self.resolve_script().await
                 } else {
                     Ok(true)
                 }
@@ -86,17 +86,19 @@ impl ClientApp {
                 for arg in &syntax.args {
                     args.push(read_prompt(&format!("{arg}: "))?);
                 }
-                let response = self.send(Request::ExecuteCommand {
-                    user_token: self.token.clone(),
-                    command_name: other.to_string(),
-                    args,
-                })?;
+                let response = self
+                    .send(Request::ExecuteCommand {
+                        user_token: self.token.clone(),
+                        command_name: other.to_string(),
+                        args,
+                    })
+                    .await?;
                 self.resolve_response(response)
             }
         }
     }
 
-    fn resolve_script(&mut self) -> Result<bool> {
+    async fn resolve_script(&mut self) -> Result<bool> {
         self.scripts.running = true;
         while let Some(command) = self.scripts.get_line() {
             if command == "execute_script" {
@@ -117,11 +119,13 @@ impl ClientApp {
                         .context("script command argument is required")?,
                 );
             }
-            let response = self.send(Request::ExecuteCommand {
-                user_token: self.token.clone(),
-                command_name: command,
-                args,
-            })?;
+            let response = self
+                .send(Request::ExecuteCommand {
+                    user_token: self.token.clone(),
+                    command_name: command,
+                    args,
+                })
+                .await?;
             if let Response::Error { message } = &response {
                 self.scripts.panic();
                 return Err(anyhow!("ошибка выполнения скрипта {message}"));

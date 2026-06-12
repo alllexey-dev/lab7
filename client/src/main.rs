@@ -4,10 +4,9 @@ mod script_manager;
 use anyhow::{anyhow, Context, Result};
 use app::{read_prompt, ClientApp};
 use lab7_shared::{md2_hash, read_env, EnterType, Request};
-use std::thread;
 use std::time::Duration;
 
-fn authenticate(app: &mut ClientApp) -> Result<()> {
+async fn authenticate(app: &mut ClientApp) -> Result<()> {
     println!("Введите 1, чтобы зарегистрироваться, 2, чтобы войти:");
     let enter_type = match read_prompt("> ")?.parse::<u8>().ok() {
         Some(1) => EnterType::Register,
@@ -18,15 +17,18 @@ fn authenticate(app: &mut ClientApp) -> Result<()> {
     let login = read_prompt("> ")?;
     println!("Введите пароль: ");
     let password = read_prompt("> ")?;
-    let response = app.send(Request::HandShake {
-        user_hash: format!("{} {}", md2_hash(&password), login),
-        enter_type,
-    })?;
+    let response = app
+        .send(Request::HandShake {
+            user_hash: format!("{} {}", md2_hash(&password), login),
+            enter_type,
+        })
+        .await?;
     app.resolve_response(response)?;
     Ok(())
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let env = read_env(".env")?;
     let mut app = ClientApp::new(
         env.get("GW_HOST")
@@ -39,11 +41,11 @@ fn main() -> Result<()> {
 
     let mut timeout = Duration::from_secs(5);
     loop {
-        match authenticate(&mut app) {
+        match authenticate(&mut app).await {
             Ok(()) => break,
             Err(err) => {
                 println!("cannot connect to server: {err}");
-                thread::sleep(timeout);
+                tokio::time::sleep(timeout).await;
                 timeout = (timeout + Duration::from_secs(1)).min(Duration::from_secs(50));
             }
         }
@@ -51,7 +53,7 @@ fn main() -> Result<()> {
 
     loop {
         let command = read_prompt("> ")?;
-        match app.run_command(command.trim()) {
+        match app.run_command(command.trim()).await {
             Ok(true) => {}
             Ok(false) => break,
             Err(err) => println!("{err}"),

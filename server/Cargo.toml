@@ -7,5 +7,6 @@ version.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
 lab7_shared = { path = "../shared" }
-postgres.workspace = true
+tokio.workspace = true
+tokio-postgres.workspace = true
 uuid.workspace = true
